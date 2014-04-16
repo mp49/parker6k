@@ -9,14 +9,11 @@ include $(TOP)/configure/CONFIG
 
 LIBRARY_IOC += parker6kSupport
 
-# xxxRecord.h will be created from xxxRecord.dbd
-#DBDINC += xxxRecord
-# Install devXxxSoft.dbd into <top>/dbd
-#DBD += xxxSupport.dbd
+DBD += parker6kSupport.dbd
 
 # Compile and add the code to the support library
-#parker6kSupport_SRCS += xxxRecord.c
-#parker6kSupport_SRCS += devXxxSoft.c
+parker6kSupport_SRCS += parker6kController.cpp
+parker6kSupport_SRCS += parker6kAxis.cpp
 
 parker6kSupport_LIBS += $(EPICS_BASE_IOC_LIBS)
 
