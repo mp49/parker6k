@@ -59,7 +59,7 @@ class p6kController : public asynMotorController {
  protected:
   p6kAxis **pAxes_;       /**< Array of pointers to axis objects */
 
-  #define FIRST_P6K_PARAM P6K_C_FirstParam__
+  #define FIRST_P6K_PARAM P6K_C_FirstParam_
   int P6K_C_FirstParam_;
   int P6K_C_GlobalStatus_;
   int P6K_C_CommsError_;
@@ -71,7 +71,7 @@ class p6kController : public asynMotorController {
   int P6K_C_Command_;
   int P6K_A_Command_;
   int P6K_C_LastParam_;
-  #define LAST_P6K_PARAM P6K_C_LastParam__
+  #define LAST_P6K_PARAM P6K_C_LastParam_
 
  private:
   p6kAxis *pAxisZero;
@@ -82,6 +82,7 @@ class p6kController : public asynMotorController {
   epicsFloat64 lastTimeSecs_;
   bool printNextError_;
   asynStatus lowLevelWriteRead(const char *command, char *response);
+  asynStatus trimResponse(char *input);
   asynStatus lowLevelPortConnect(const char *port, int addr, asynUser **ppasynUser, char *inputEos, char *outputEos);
 
   asynStatus getGlobalStatus(epicsUInt32 *globalStatus);

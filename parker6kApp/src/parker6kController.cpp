@@ -75,7 +75,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
 {
   static const char *functionName = "p6kController::p6kController";
 
-  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s Constructor.\n", functionName);
+  printf("%s: Constructor.\n", functionName);
 
   //Initialize non static data members
   lowLevelPortUser_ = NULL;
@@ -87,37 +87,60 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   pAxes_ = (p6kAxis **)(asynMotorController::pAxes_);
 
   //Create dummy axis for asyn address 0. This is used for controller parameters.
-  pAxisZero = new p6kAxis(this, 0);
+  //Do I need this?
+  //printf("%s: Create pAxisZero for controller parameters.\n", functionName);
+  //pAxisZero = new p6kAxis(this, 0);
 
   //Create controller-specific parameters
+  printf("%s: Create controller parameters.\n", functionName);
   createParam(P6K_C_FirstParamString,       asynParamInt32, &P6K_C_FirstParam_);
   createParam(P6K_C_GlobalStatusString,     asynParamInt32, &P6K_C_GlobalStatus_);
   createParam(P6K_C_CommsErrorString,       asynParamInt32, &P6K_C_CommsError_);
+  createParam(P6K_C_CommandString,          asynParamOctet, &P6K_C_Command_);
+  createParam(P6K_C_LastParamString,        asynParamInt32, &P6K_C_LastParam_);
+
+  //Create axis specific parameters
+  printf("%s: Create axis parameters.\n", functionName);
   createParam(P6K_A_DRESString,             asynParamInt32, &P6K_A_DRES_);
   createParam(P6K_A_ERESString,             asynParamInt32, &P6K_A_ERES_);
   createParam(P6K_A_DRIVEString,            asynParamInt32, &P6K_A_DRIVE_);
   createParam(P6K_A_MaxDigitsString,        asynParamInt32, &P6K_A_MaxDigits_);
-  createParam(P6K_C_CommandString,          asynParamOctet, &P6K_C_Command_);
   createParam(P6K_A_CommandString,          asynParamOctet, &P6K_A_Command_);
-  createParam(P6K_C_FirstParamString,       asynParamInt32, &P6K_C_LastParam_);
-
+  
   //Connect our Asyn user to the low level port that is a parameter to this constructor
+  //NOTE:
+  // The P6K will send back a command with a \r\r\n> \n>
+  // The low level port EOS will remove the first >. 
+  // We will need to deal with the rest in p6kController::lowLevelWriteRead
+  printf("%s: Connect to low level Asyn port.\n", functionName);
   if (lowLevelPortConnect(lowLevelPortName, lowLevelPortAddress, &lowLevelPortUser_, ">", "\n") != asynSuccess) {
     printf("%s: Failed to connect to low level asynOctetSyncIO port %s\n", functionName, lowLevelPortName);
     setIntegerParam(P6K_C_CommsError_, P6K_ERROR_);
   } else {
     setIntegerParam(P6K_C_CommsError_, P6K_OK_);
   }
-  startPoller(movingPollPeriod, idlePollPeriod, P6K_FORCED_FAST_POLLS_);
 
-  bool paramStatus = true;
-  paramStatus = ((setIntegerParam(P6K_C_GlobalStatus_, 0) == asynSuccess) && paramStatus);
-  paramStatus = ((setStringParam(P6K_C_Command_, " ") == asynSuccess) && paramStatus);
+  //Disable command echo
+  char command[P6K_MAXBUF_] = {0};
+  char response[P6K_MAXBUF_] = {0};
+  sprintf(command, "ECHO0");
+  if (lowLevelWriteRead(command, response) != asynSuccess) {
+    asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+	      "%s: Turning off ECHO failed.\n", functionName);
+  } else {
 
-  callParamCallbacks();
+    startPoller(movingPollPeriod, idlePollPeriod, P6K_FORCED_FAST_POLLS_);
 
-  if (!paramStatus) {
-    asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "%s Unable To Set Driver Parameters In Constructor.\n", functionName);
+    bool paramStatus = true;
+    paramStatus = ((setIntegerParam(P6K_C_GlobalStatus_, 0) == asynSuccess) && paramStatus);
+    paramStatus = ((setStringParam(P6K_C_Command_, " ") == asynSuccess) && paramStatus);
+
+    callParamCallbacks();
+
+    if (!paramStatus) {
+      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "%s Unable To Set Driver Parameters In Constructor.\n", functionName);
+    }
+
   }
  
 }
@@ -212,6 +235,9 @@ asynStatus p6kController::printConnectedStatus()
 
 /**
  * Wrapper for asynOctetSyncIO write/read functions.
+ * The P6K will send back a command with a \r\r\n> \n>
+ * The low level port asyn EOS will remove the first >. 
+ * We deal with the rest in this function 
  * @param command - String command to send.
  * @response response - String response back.
  */
@@ -253,9 +279,41 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
       setIntegerParam(P6K_C_CommsError_, P6K_OK_);
     }
   }
+
+  status = trimResponse(response);
   
   asynPrint(lowLevelPortUser_, ASYN_TRACEIO_DRIVER, "%s: response: %s\n", functionName, response); 
   
+  return status;
+}
+
+/**
+ * Remove a \r\r\n from an input buffer. 
+ * @param input - input buffer. This will be modified.
+ */
+asynStatus p6kController::trimResponse(char *input)
+{
+  asynStatus status = asynSuccess;
+  static const char *trailer = "\r\r\n";
+  static const char *smallTrailer = "\r\n";
+  static const char *functionName = "p6kController::trimResponse";
+
+  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
+
+  char *pTrailer = strstr(input, trailer);
+  if (pTrailer != NULL) {
+    *pTrailer = '\0';
+  } else {
+    //Try the smallTrailer instead
+    pTrailer = strstr(input, smallTrailer);
+    if (pTrailer != NULL) {
+      *pTrailer = '\0';
+    } else {
+      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "%s Could not find correct trailer.\n", functionName);
+      status = asynError;
+    }
+  }
+
   return status;
 }
 
