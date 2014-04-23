@@ -1055,14 +1055,6 @@ static void p6kControllerRegister(void)
 }
 epicsExportRegistrar(p6kControllerRegister);
 
-#ifdef vxWorks
-  //VxWorks register functions
-  epicsRegisterFunction(p6kCreateController);
-  epicsRegisterFunction(p6kCreateAxis);
-  epicsRegisterFunction(p6kCreateAxes);
-//  epicsRegisterFunction(p6kDisableLimitsCheck);
-//  epicsRegisterFunction(p6kSetAxisScale);
-//  epicsRegisterFunction(p6kSetOpenLoopEncoderAxis);
-#endif
+
 } // extern "C"
 
