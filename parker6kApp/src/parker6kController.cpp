@@ -309,45 +309,11 @@ asynStatus p6kController::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
   /* Set the parameter and readback in the parameter library. */
   status = (pAxis->setDoubleParam(function, value) == asynSuccess) && status;
 
-  if (function == motorPosition_) {
-    /*Set position on motor axis.*/            
-    epicsInt32 position = static_cast<epicsInt32>(floor(value + 0.5));
-    
-    asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, 
-	      "%s: Set axis %d on controller %s to position %f\n", 
-	      functionName, pAxis->axisNo_, portName, value);
-
-    sprintf(command, "!%dS", pAxis->axisNo_);
-    if ( command[0] != 0 && status) {
-      status = (lowLevelWriteRead(command, response) == asynSuccess) && status;
-    }
-    memset(command, 0, sizeof(command));
-
-    sprintf(command, "%dPSET%d", pAxis->axisNo_, position);
-    if ( command[0] != 0 && status) {
-      status = (lowLevelWriteRead(command, response) == asynSuccess) && status;
-    }
-    memset(command, 0, sizeof(command));
-
-    /*Now set position on encoder axis.*/
-               
-    getDoubleParam(motorEncoderRatio_,  &encRatio);
-    encposition = (epicsInt32) floor((position*encRatio) + 0.5);
-                  
-    sprintf(command, "%dPESET%d", pAxis->axisNo_, encposition);
-    if ( command[0] != 0 && status) {
-      status = (lowLevelWriteRead(command, response) == asynSuccess) && status;
-    }
-    memset(command, 0, sizeof(command));
-    
-    /*Now do an update, to get the new position from the controller.*/
-    bool moving = true;
-    pAxis->getAxisStatus(&moving);
-  } 
-  else if (function == motorLowLimit_) {
-    /* ignore for now, but I think I will need to do:
+  if (function == motorLowLimit_) {
 
       epicsInt32 limit = static_cast<epicsInt32>(floor(value + 0.5));
+
+        /* ignore for now, but I think I will need to do:
 
       sprintf(command, "%dLS1", pAxis->axisNo_);
       if ( command[0] != 0 && status) {
@@ -358,14 +324,15 @@ asynStatus p6kController::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
       sprintf(command, "%dLSNEG", pAxis->axisNo_, limit);
       
      */
-    /*asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW,
+    asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW,
     	      "%s: Setting low limit on controller %s, axis %d to %d\n",
-    	      functionName, portName, pAxis->axisNo_, limit);*/
+    	      functionName, portName, pAxis->axisNo_, limit);
   }
   else if (function == motorHighLimit_) {
-    /* ignore for now, but I think I will need to do:
 
       epicsInt32 limit = static_cast<epicsInt32>(floor(value + 0.5));
+
+      /* ignore for now, but I think I will need to do:
 
       sprintf(command, "%dLS1", pAxis->axisNo_);
       if ( command[0] != 0 && status) {
@@ -376,9 +343,9 @@ asynStatus p6kController::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
       sprintf(command, "%dLSPOS", pAxis->axisNo_, limit);
       
      */
-    /*asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW,
+    asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW,
     	      "%s: Setting high limit on controller %s, axis %d to %d\n",
-    	      functionName, portName, pAxis->axisNo_, limit);*/
+    	      functionName, portName, pAxis->axisNo_, limit);
   } 
 
   if (command[0] != 0 && status) {

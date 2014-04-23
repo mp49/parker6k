@@ -340,14 +340,63 @@ asynStatus p6kAxis::moveVelocity(double min_velocity, double max_velocity, doubl
  */
 asynStatus p6kAxis::setPosition(double position)
 {
-  asynStatus status = asynError;
+  asynStatus asynStatus = asynError;
+  bool status = true;
+  char command[P6K_MAXBUF]  = {0};
+  char response[P6K_MAXBUF] = {0};
   static const char *functionName = "p6kAxis::setPosition";
   
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
-  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, "%s setPosition not implemented yet.\n", functionName);
+  /*Set position on motor axis.*/
+  epicsInt32 pos = static_cast<epicsInt32>(floor(position + 0.5));
+    
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
+	    "%s: Set axis %d on controller %s to position %f\n", 
+	    functionName, axisNo_, pC_->portName, pos);
 
-  return status;
+  sprintf(command, "!%dS", axisNo_);
+  if ( command[0] != 0 && status) {
+    status = (pC_->lowLevelWriteRead(command, response) == asynSuccess);
+  }
+  memset(command, 0, sizeof(command));
+
+  sprintf(command, "%dPSET%d", axisNo_, pos);
+  if ( command[0] != 0 && status) {
+    status = (pC_->lowLevelWriteRead(command, response) == asynSuccess);
+  }
+  memset(command, 0, sizeof(command));
+
+  /*Now set position on encoder axis.*/
+               
+  epicsFloat64 encRatio = 0.0;
+  pC_->getDoubleParam(pC_->motorEncoderRatio_,  &encRatio);
+  epicsInt32 encpos = (epicsInt32) floor((position*encRatio) + 0.5);
+
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
+	    "%s: Set encoder axis %d on controller %s to position %f, encRatio: %f\n", 
+	    functionName, axisNo_, pC_->portName, pos, encRatio);
+
+  sprintf(command, "%dPESET%d", axisNo_, encpos);
+  if ( command[0] != 0 && status) {
+    status = (pC_->lowLevelWriteRead(command, response) == asynSuccess);
+  }
+  memset(command, 0, sizeof(command));
+   
+  /*Now do a fast update, to get the new position from the controller.*/
+  bool moving = true;
+  getAxisStatus(&moving);
+ 
+  if (!status) {
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+	      "%s: Failed to set position on axis %d on controller %s.\n", 
+	      functionName, axisNo_, pC_->portName);
+    asynStatus = asynError;
+  } else {
+    asynStatus = asynSuccess;
+  }
+
+  return asynStatus;
 }
 
 /**
