@@ -135,13 +135,12 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
 {
   char command[P6K_MAXBUF] = {0};
   char response[P6K_MAXBUF] = {0};
-  int cmdStatus = 0;
-  double low_limit = 0.0;
-  double high_limit = 0.0;
-  double pgain = 0.0;
-  double igain = 0.0;
-  double dgain = 0.0;
+  asynStatus status = asynSuccess;
+  int intVal = 0;
+  double doubleVal = 0.0;
   int nvals = 0;
+  int softLimit = 0;
+  int axisNum = 0;
 
   static const char *functionName = "p6kAxis::getAxisInitialStatus";
 
@@ -151,43 +150,75 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
 
     //This may have to be sent by the controller class. Not sure if prepending the axis number works.
     sprintf(command, "%dAXSDEF", axisNo_);
-    cmdStatus = pC_->lowLevelWriteRead(command, response);
+    status = pC_->lowLevelWriteRead(command, response);
     cout << "Reading AXSDEF: " << response << endl;
-    //Set AXSDEF here
-    //setIntegerParam(pC_->P6K_A_AXSDEF_, 0);
+    if (status == asynSuccess) {
+      nvals = sscanf(response, "%dAXSDEF%d", &axisNum, &intVal);    
+      setIntegerParam(pC_->P6K_A_AXSDEF_, intVal);
+    }
 
     sprintf(command, "%dDRES", axisNo_);
-    cmdStatus = pC_->lowLevelWriteRead(command, response);
+    status = pC_->lowLevelWriteRead(command, response);
     cout << "Reading DRES: " << response << endl;
-    //Set DRES param here
-    //setIntegerParam(pC_->P6K_A_DRES_, 0);
+    if (status == asynSuccess) {
+      nvals = sscanf(response, "%dDRES%d", &axisNum, &intVal);    
+      setIntegerParam(pC_->P6K_A_DRES_, intVal);
+    }
 
     sprintf(command, "%dERES", axisNo_);
-    cmdStatus = pC_->lowLevelWriteRead(command, response);
+    status = pC_->lowLevelWriteRead(command, response);
     cout << "Reading ERES: " << response << endl;
-    //Set ERES param here
-    //setIntegerParam(pC_->P6K_A_ERES_, 0);
+    if (status == asynSuccess) {
+      nvals = sscanf(response, "%dERES%d", &axisNum, &intVal);
+      setIntegerParam(pC_->P6K_A_ERES_, intVal);
+    }
 
     sprintf(command, "%dDRIVE", axisNo_);
-    cmdStatus = pC_->lowLevelWriteRead(command, response);
+    status = pC_->lowLevelWriteRead(command, response);
     cout << "Reading DRIVE: " << response << endl;
-    //Set DRIVE param here
-    //setIntegerParam(pC_->P6K_A_DRIVE_, 0);
-
+    if (status == asynSuccess) {
+      nvals = sscanf(response, "%dDRIVE%d", &axisNum, &intVal);
+      setIntegerParam(pC_->P6K_A_DRIVE_, intVal);
+    }
+    
     sprintf(command, "%dLS", axisNo_);
-    cmdStatus = pC_->lowLevelWriteRead(command, response);
+    status = pC_->lowLevelWriteRead(command, response);
     cout << "Reading LS: " << response << endl;
+    if (status == asynSuccess) {
+      nvals = sscanf(response, "%dLS%d", &axisNum, &softLimit);
+    }
     sprintf(command, "%dLSPOS", axisNo_);
-    cmdStatus = pC_->lowLevelWriteRead(command, response);
+    status = pC_->lowLevelWriteRead(command, response);
     cout << "Reading LSPOS: " << response << endl;
+    if (status == asynSuccess) {
+      nvals = sscanf(response, "%dLSPOS%f", &axisNum, &doubleVal);
+      setDoubleParam(pC_->motorHighLimit_, doubleVal);
+    }
     sprintf(command, "%dLSNEG", axisNo_);
-    cmdStatus = pC_->lowLevelWriteRead(command, response);
+    status = pC_->lowLevelWriteRead(command, response);
     cout << "Reading LSNEG: " << response << endl;
-    //Set software limit params here. Print warning if software limits are disabled.
-    // setDoubleParam(pC_->motorLowLimit_,  low_limit);
-    //setDoubleParam(pC_->motorHighLimit_, high_limit);
-       
+    if (status == asynSuccess) {
+      nvals = sscanf(response, "%dLSNEG%f", &axisNum, &doubleVal);
+      setDoubleParam(pC_->motorLowLimit_, doubleVal);
+    }
+   
   }
+  
+  printf("Axis %d\n", axisNo_);
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_DRIVE_, &intVal);
+  printf("  DRIVE: %d\n", intVal);
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_DRES_, &intVal);  
+  printf("  DRES: %d\n", intVal);
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_ERES_, &intVal);
+  printf("  ERES: %d\n", intVal);
+  printf("  LS: %d\n", softLimit);
+  if (softLimit != 3) {
+    printf("  WARNING: One or both soft limits are disabled.\n");
+  }
+  pC_->getDoubleParam(axisNo_, pC_->motorHighLimit_, &doubleVal);
+  printf("  LSPOS: %d\n", intVal);
+  pC_->getDoubleParam(axisNo_, pC_->motorLowLimit_, &doubleVal);
+  printf("  LSNEG: %d\n", intVal);
   
   return asynSuccess;
 }
