@@ -13,7 +13,10 @@ DBD += example.dbd
 
 # example.dbd will be made up from these files:
 example_DBD += base.dbd
+example_DBD += asyn.dbd
+example_DBD += drvAsynIPPort.dbd
 example_DBD += motorSupport.dbd
+example_DBD += parker6kSupport.dbd
 
 # example_registerRecordDeviceDriver.cpp derives from example.dbd
 example_SRCS += example_registerRecordDeviceDriver.cpp
@@ -28,7 +31,7 @@ example_SRCS_vxWorks += -nil-
 # Link in the code from the support library
 example_LIBS += asyn
 example_LIBS += motor
-#example_LIBS += parker6k
+example_LIBS += parker6kSupport
 
 
 # Finally link to the EPICS Base libraries

@@ -12,17 +12,27 @@ dbLoadDatabase "dbd/example.dbd"
 example_registerRecordDeviceDriver pdbbase
 
 ## Load record instances
-dbLoadTemplate "db/userHost.substitutions"
-dbLoadRecords "db/dbSubExample.db", "user=mkpHost"
+dbLoadRecords "db/example.db"
 
-## Set this to see messages from mySub
-#var mySubDebug 1
+####################################################
+# P6K Controller
 
-## Run this to trace the stages of iocInit
-#traceIocInit
+drvAsynIPPortConfigure("6K","192.168.200.153:4001",0,0,0)
+
+#This prints low level commands and responses
+asynSetTraceMask("6K",0,0x2)
+asynSetTraceIOMask("6K",0,0x2)
+
+p6kCreateController("P6K","6K",0,1,500,1000)
+
+asynSetTraceMask("P6K",0,0xFF)
+asynSetTraceIOMask("P6K",0,0xFF)
+
+p6kCreateAxis("P6K",1)
+
+####################################################
+
 
 cd ${TOP}/iocBoot/${IOC}
 iocInit
 
-## Start any sequence programs
-#seq sncExample, "user=mkpHost"
