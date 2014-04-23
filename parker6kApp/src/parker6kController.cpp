@@ -248,6 +248,7 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
   size_t nwrite = 0;
   size_t nread = 0;
   int commsError = 0;
+  char temp[P6K_MAXBUF_] = {0};
   static const char *functionName = "p6kController::lowLevelWriteRead";
 
   asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
@@ -268,7 +269,7 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
   if (!commsError) {
     status = pasynOctetSyncIO->writeRead(lowLevelPortUser_ ,
 					 command, strlen(command),
-					 response, P6K_MAXBUF_,
+					 temp, P6K_MAXBUF_,
 					 P6K_TIMEOUT_,
 					 &nwrite, &nread, &eomReason );
     
@@ -280,7 +281,7 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
     }
   }
 
-  status = trimResponse(response);
+  status = trimResponse(temp, response);
   
   asynPrint(lowLevelPortUser_, ASYN_TRACEIO_DRIVER, "%s: response: %s\n", functionName, response); 
   
@@ -288,10 +289,12 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
 }
 
 /**
- * Remove a \r\r\n from an input buffer. 
+ * Remove a \r\r\n from an input buffer.
+ * Also remove leading '*' character. 
  * @param input - input buffer. This will be modified.
+ * @param output - output buffer. No bigger than P6K_MAXBUF_.
  */
-asynStatus p6kController::trimResponse(char *input)
+asynStatus p6kController::trimResponse(char *input, char *output)
 {
   asynStatus status = asynSuccess;
   static const char *trailer = "\r\r\n";
@@ -311,6 +314,16 @@ asynStatus p6kController::trimResponse(char *input)
     } else {
       asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "%s Could not find correct trailer.\n", functionName);
       status = asynError;
+    }
+  }
+
+  //Remove leading '*' character. Make sure it's there first.
+  if (status == asynSuccess) {
+    if (input[0] == '*') {
+      input++;
+    }
+    if (output != NULL) {
+      strncpy(output, input, P6K_MAXBUF_-1);
     }
   }
 

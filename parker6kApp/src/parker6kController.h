@@ -82,7 +82,7 @@ class p6kController : public asynMotorController {
   epicsFloat64 lastTimeSecs_;
   bool printNextError_;
   asynStatus lowLevelWriteRead(const char *command, char *response);
-  asynStatus trimResponse(char *input);
+  asynStatus trimResponse(char *input, char *output);
   asynStatus lowLevelPortConnect(const char *port, int addr, asynUser **ppasynUser, char *inputEos, char *outputEos);
 
   asynStatus getGlobalStatus(epicsUInt32 *globalStatus);
