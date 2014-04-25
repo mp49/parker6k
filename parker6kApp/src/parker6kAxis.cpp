@@ -81,6 +81,13 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
+  if (axisNo > pC_->numAxes_-1) {
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+	      "%s ERROR: Axis number out of range. Max: %d\n", 
+	      functionName, pC_->numAxes_-1);
+    return;
+  }
+
   //Initialize non-static data members
   setpointPosition_ = 0.0;
   encoderPosition_ = 0.0;
@@ -689,6 +696,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       printNextError_ = true;
     }
     
+    //This currently isn't checked by base class polling thread.
     return asynSuccess;
 }
 
