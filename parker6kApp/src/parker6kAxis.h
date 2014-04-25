@@ -12,6 +12,8 @@
 #ifndef p6kAxis_H
 #define p6kAxis_H
 
+#include "stdint.h"
+
 #include "asynMotorController.h"
 #include "asynMotorAxis.h"
 
@@ -36,7 +38,7 @@ class p6kAxis : public asynMotorAxis
   
   asynStatus getAxisStatus(bool *moving);
   asynStatus getAxisInitialStatus(void);
-  //asynStatus dumpAxisConfig
+  void printAxisParams(void);
 
 
   double setpointPosition_;
@@ -46,22 +48,23 @@ class p6kAxis : public asynMotorAxis
   double accel_;
   double highLimit_;
   double lowLimit_;
-  int limitsDisabled_;
+  uint32_t limitsDisabled_;
   double stepSize_;
   double deferredPosition_;
-  int deferredMove_;
-  int deferredRelative_;
-  int scale_;
+  uint32_t deferredMove_;
+  uint32_t deferredRelative_;
+  uint32_t scale_;
   double previous_position_;
-  int previous_direction_;
-  int amp_enabled_;
-  int fatal_following_;
-  int encoder_axis_;
-  //  int limitsCheckDisable_;
+  uint32_t previous_direction_;
+  uint32_t amp_enabled_;
+  uint32_t fatal_following_;
+  uint32_t encoder_axis_;
+  //  uint32_t limitsCheckDisable_;
   epicsTimeStamp nowTime_;
   epicsFloat64 nowTimeSecs_;
   epicsFloat64 lastTimeSecs_; 
   bool printNextError_;
+  uint32_t driveType_;
 
   static const epicsUInt32 P6K_TAS_MOVING_;
   static const epicsUInt32 P6K_TAS_DIRECTION_;
@@ -86,8 +89,11 @@ class p6kAxis : public asynMotorAxis
   static const epicsUInt32 P6K_TAS_MOVEPEND_;
   static const epicsUInt32 P6K_TAS_PREEMPT_;
  
+  static const char P6K_TAS_ON_;
+  static const char P6K_TAS_OFF_;
   
-  
+  static const epicsUInt32 P6K_STEPPER_;
+  static const epicsUInt32 P6K_SERVO_;
 
   friend class p6kController;
 };

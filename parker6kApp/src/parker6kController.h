@@ -44,6 +44,7 @@
 #define P6K_CMD_DRIVE    "DRIVE"
 #define P6K_CMD_DRES     "DRES"
 #define P6K_CMD_ECHO     "ECHO"
+#define P6K_CMD_ENCCNT   "ENCCNT"
 #define P6K_CMD_ERES     "ERES"
 #define P6K_CMD_GO       "GO"
 #define P6K_CMD_LS       "LS"
