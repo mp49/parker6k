@@ -95,6 +95,9 @@ class p6kAxis : public asynMotorAxis
   static const epicsUInt32 P6K_STEPPER_;
   static const epicsUInt32 P6K_SERVO_;
 
+  static const epicsUInt32 P6K_LIM_ENABLE_;
+  static const epicsUInt32 P6K_LIM_DISABLE_;
+
   friend class p6kController;
 };
 

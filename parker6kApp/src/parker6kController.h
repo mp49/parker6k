@@ -31,6 +31,8 @@
 #define P6K_A_AXSDEFString "P6K_A_AXSDEF"
 #define P6K_A_MaxDigitsString "P6K_A_MAXDIGITS"
 #define P6K_A_CommandString "P6K_A_Command"
+#define P6K_A_LSString "P6K_A_LS"
+#define P6K_A_LHString "P6K_A_LH"
 
 #define P6K_MAXBUF 1024
 
@@ -47,6 +49,7 @@
 #define P6K_CMD_ENCCNT   "ENCCNT"
 #define P6K_CMD_ERES     "ERES"
 #define P6K_CMD_GO       "GO"
+#define P6K_CMD_LH       "LH"
 #define P6K_CMD_LS       "LS"
 #define P6K_CMD_LSNEG    "LSNEG"
 #define P6K_CMD_LSPOS    "LSPOS"
@@ -94,6 +97,8 @@ class p6kController : public asynMotorController {
   int P6K_A_DRIVE_;
   int P6K_A_AXSDEF_;
   int P6K_A_MaxDigits_;
+  int P6K_A_LS_;
+  int P6K_A_LH_;
   int P6K_C_Command_;
   int P6K_A_Command_;
   int P6K_C_LastParam_;
@@ -123,6 +128,8 @@ class p6kController : public asynMotorController {
   static const epicsUInt32 P6K_OK_;
   static const epicsUInt32 P6K_ERROR_;
   static const epicsUInt32 P6K_ERROR_PRINT_TIME_;
+
+
 
   friend class p6kAxis;
 

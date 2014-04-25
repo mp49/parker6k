@@ -56,6 +56,9 @@ const char p6kAxis::P6K_TAS_OFF_      = '0';
 const epicsUInt32 p6kAxis::P6K_STEPPER_       = 0;
 const epicsUInt32 p6kAxis::P6K_SERVO_       = 1;
 
+const epicsUInt32 p6kAxis::P6K_LIM_DISABLE_       = 0;
+const epicsUInt32 p6kAxis::P6K_LIM_ENABLE_       = 3;
+
 static void shutdownCallback(void *pPvt)
 {
   p6kController *pC = static_cast<p6kController *>(pPvt);
@@ -111,6 +114,8 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   paramStatus = ((setIntegerParam(pC_->motorStatusHasEncoder_, 1) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->motorStatusGainSupport_, 1) == asynSuccess) && paramStatus);
   paramStatus = ((setStringParam(pC_->P6K_A_Command_, " ") == asynSuccess) && paramStatus);
+  paramStatus = ((setIntegerParam(pC_->P6K_A_LS_, 0) == asynSuccess) && paramStatus);
+  paramStatus = ((setIntegerParam(pC_->P6K_A_LH_, 0) == asynSuccess) && paramStatus);
   if (!paramStatus) {
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
 	      "%s Unable To Set Driver Parameters In Constructor. Axis:%d\n", 
@@ -191,29 +196,31 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
       setIntegerParam(pC_->motorStatusHasEncoder_, intVal);
     }
 
+    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_LH);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    if (stat) {
+      nvals = sscanf(response, "%d"P6K_CMD_LH"%d", &axisNum, &intVal);
+      setIntegerParam(pC_->P6K_A_LH_, intVal);
+    }
     
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_LS);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
     if (stat) {
       nvals = sscanf(response, "%d"P6K_CMD_LS"%d", &axisNum, &softLimit);
+      setIntegerParam(pC_->P6K_A_LS_, intVal);
     }
+
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_LSPOS);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
     if (stat) {
-      cout << response << endl;
-      cout << doubleVal << endl;
       nvals = sscanf(response, "%d"P6K_CMD_LSPOS"%f", &axisNum, &doubleVal);
       setDoubleParam(pC_->motorHighLimit_, doubleVal);
-      cout << doubleVal << endl;
     }
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_LSNEG);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
     if (stat) {
-      cout << response << endl;
-      cout << doubleVal << endl;
       nvals = sscanf(response, "%d"P6K_CMD_LSNEG"%f", &axisNum, &doubleVal);
       setDoubleParam(pC_->motorLowLimit_, doubleVal);
-      cout << doubleVal << endl;
     }
    
   }
@@ -239,7 +246,6 @@ p6kAxis::~p6kAxis()
 void p6kAxis::printAxisParams(void)
 {
   int32_t  intVal = 0;
-  int32_t softLimit = 0;
   double doubleVal = 0.0;
   
   printf("Axis %d\n", axisNo_);
@@ -258,9 +264,15 @@ void p6kAxis::printAxisParams(void)
   printf("  "P6K_CMD_DRES": %d\n", intVal);
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_ERES_, &intVal);
   printf("  "P6K_CMD_ERES": %d\n", intVal);
-  printf("  "P6K_CMD_LS": %d\n", softLimit);
-  if (softLimit != 3) {
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_LS_, &intVal);
+  printf("  "P6K_CMD_LS": %d\n", intVal);
+  if (intVal != P6K_LIM_ENABLE_) {
     printf("  WARNING: One or both soft limits are disabled.\n");
+  }
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_LH_, &intVal);
+  printf("  "P6K_CMD_LH": %d\n", intVal);
+  if (intVal != P6K_LIM_ENABLE_) {
+    printf("  WARNING: One or both hard limits are disabled.\n");
   }
   pC_->getDoubleParam(axisNo_, pC_->motorHighLimit_, &doubleVal);
   printf("  "P6K_CMD_LSPOS": %f\n", doubleVal);

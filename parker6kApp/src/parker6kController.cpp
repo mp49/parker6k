@@ -109,6 +109,8 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_A_DRIVEString,            asynParamInt32, &P6K_A_DRIVE_);
   createParam(P6K_A_AXSDEFString,           asynParamInt32, &P6K_A_AXSDEF_);
   createParam(P6K_A_MaxDigitsString,        asynParamInt32, &P6K_A_MaxDigits_);
+  createParam(P6K_A_LSString,               asynParamInt32, &P6K_A_LS_);
+  createParam(P6K_A_LHString,               asynParamInt32, &P6K_A_LH_);
   createParam(P6K_A_CommandString,          asynParamOctet, &P6K_A_Command_);
   
   //Connect our Asyn user to the low level port that is a parameter to this constructor
