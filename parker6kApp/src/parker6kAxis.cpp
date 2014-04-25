@@ -213,13 +213,13 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_LSPOS);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
     if (stat) {
-      nvals = sscanf(response, "%d"P6K_CMD_LSPOS"%f", &axisNum, &doubleVal);
+      nvals = sscanf(response, "%d"P6K_CMD_LSPOS"%lf", &axisNum, &doubleVal);
       setDoubleParam(pC_->motorHighLimit_, doubleVal);
     }
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_LSNEG);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
     if (stat) {
-      nvals = sscanf(response, "%d"P6K_CMD_LSNEG"%f", &axisNum, &doubleVal);
+      nvals = sscanf(response, "%d"P6K_CMD_LSNEG"%lf", &axisNum, &doubleVal);
       setDoubleParam(pC_->motorLowLimit_, doubleVal);
     }
    
@@ -577,7 +577,8 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
     
-    //Get the time and decide if we want to print32_t errors.
+    //Get the time and decide if we want to print errors.
+    //Crude error message throttling.
     epicsTimeGetCurrent(&nowTime_);
     nowTimeSecs_ = nowTime_.secPastEpoch;
     if ((nowTimeSecs_ - lastTimeSecs_) < pC_->P6K_ERROR_PRINT_TIME_) {
@@ -626,176 +627,80 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
 
     printf("  Status string: %s\n", stringVal);
 
-    if (deferredMove_) {
-      doneMoving = false; 
-    } else {
-      doneMoving = !(stringVal[P6K_TAS_MOVING_] == P6K_TAS_ON_);
-    }
-
-    if (doneMoving) {
-      if (driveType_ == P6K_SERVO_) {
-	bool targetZone = (stringVal[P6K_TAS_TARGETZONE_] == P6K_TAS_ON_);
-	doneMoving = targetZone && !(stringVal[P6K_TAS_TARGETTIMEOUT_] == P6K_TAS_ON_);
+    if (!stat) {
+      if (printErrors) {
+	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+		  "ERROR: Problem reading position and status on controller %s, axis %d\n", 
+		  pC_->portName, axisNo_);
+	printNextError_ = false;
       }
-    }
-
-    if (!doneMoving) {
-      *moving = true;
     } else {
-      *moving = false;
-    }
 
-    stat = (setIntegerParam(pC_->motorStatusDone_, doneMoving) == asynSuccess) && stat;
-    stat = (setIntegerParam(pC_->motorStatusMoving_, (stringVal[P6K_TAS_MOVING_] == P6K_TAS_ON_)) == asynSuccess) && stat;
-    stat = (setIntegerParam(pC_->motorStatusDirection_, (stringVal[P6K_TAS_DIRECTION_] == P6K_TAS_ON_)) == asynSuccess) && stat;
-    stat = (setIntegerParam(pC_->motorStatusHighLimit_, (stringVal[P6K_TAS_POSLIM_] == P6K_TAS_ON_)) == asynSuccess) && stat;
-    stat = (setIntegerParam(pC_->motorStatusLowLimit_, (stringVal[P6K_TAS_NEGLIM_] == P6K_TAS_ON_)) == asynSuccess) && stat;
-    stat = (setIntegerParam(pC_->motorStatusHomed_, (stringVal[P6K_TAS_HOMED_] == P6K_TAS_ON_)) == asynSuccess) && stat;
-    stat = (setIntegerParam(pC_->motorStatusHomed_, (stringVal[P6K_TAS_HOMED_] == P6K_TAS_ON_)) == asynSuccess) && stat;
-    stat = (setIntegerParam(pC_->motorStatusPowerOn_, (stringVal[P6K_TAS_DRIVE_] == P6K_TAS_ON_)) == asynSuccess) && stat;
-
-    if (driveType_ == P6K_SERVO_) {
-      stat = (setIntegerParam(pC_->motorStatusFollowingError_, (stringVal[P6K_TAS_POSERROR_] == P6K_TAS_ON_)) == asynSuccess) && stat;
-    } else {
-      stat = (setIntegerParam(pC_->motorStatusFollowingError_, (stringVal[P6K_TAS_STALL_] == P6K_TAS_ON_)) == asynSuccess) && stat;
-    }
-
-    int problem = 0;
-    problem = 
-      (stringVal[P6K_TAS_DRIVEFAULT_] == P6K_TAS_ON_) |
-      (stringVal[P6K_TAS_TARGETTIMEOUT_] == P6K_TAS_ON_) |
-      (stringVal[P6K_TAS_POSERROR_] == P6K_TAS_ON_);
-    stat = (setIntegerParam(pC_->motorStatusProblem_, (problem!=0)) == asynSuccess) && stat;
-
-    
-
-    /*    
-    // Read all the status for this axis in one go 
-    if (encoder_axis_ != 0) {
-      // Encoder position comes back on a different axis 
-      sprintf(command, "#%d ? P #%d P", axisNo_,  encoder_axis_);
-    } else {
-      // Encoder position comes back on this axis - note we initially read 
-      // the following error into the position variable 
-      sprintf(command, "#%d ? F P", axisNo_);
-    }
-    
-    cmdStatus = pC_->lowLevelWriteRead(command, response);
-    nvals = sscanf( response, "%6x%6x %lf %lf", &status[0], &status[1], &position, &enc_position );
-	
-    if ( cmdStatus || nvals != 4) {
-      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
-		"drvP6kAxisGetStatus: not all status values returned. Status: %d\nCommand :%s\nResponse:%s",
-		cmdStatus, command, response );
-    } else {
-      int32_t homeSignal = ((status[1] & pC_->P6K_STATUS2_HOME_COMPLETE) != 0);
-      int32_t direction = 0;
-      
-      //For closed loop axes, position is actually following error up to this point
-      if ( encoder_axis_ == 0 ) {
-	position += enc_position;
-      }
-      
-      position *= scale_;
-      enc_position  *= scale_;
-      
-      setDoubleParam(pC_->motorPosition_, position);
-      setDoubleParam(pC_->motorEncoderPosition_, enc_position);
-      
-      // Use previous position and current position to calculate direction.
-      if ((position - previous_position_) > 0) {
-	direction = 1;
-      } else if (position - previous_position_ == 0.0) {
-	direction = previous_direction_;
+      if (deferredMove_) {
+	doneMoving = false; 
       } else {
-	direction = 0;
+	doneMoving = !(stringVal[P6K_TAS_MOVING_] == P6K_TAS_ON_);
       }
-      setIntegerParam(pC_->motorStatusDirection_, direction);
-      //Store position to calculate direction for next poll.
-      previous_position_ = position;
-      previous_direction_ = direction;
-
-      if(deferredMove_) {
-	done = 0; 
-      } else {
-	done = (((status[1] & pC_->P6K_STATUS2_IN_POSITION) != 0) || ((status[0] & pC_->P6K_STATUS1_MOTOR_ON) == 0)); 
-	//If we are not done, but amp has been disabled, then set done (to stop when we get following errors).
-	if ((done == 0) && ((status[0] & pC_->P6K_STATUS1_AMP_ENABLED) == 0)) {
-	  done = 1;
+      
+      if (doneMoving) {
+	if (driveType_ == P6K_SERVO_) {
+	  bool targetZone = (stringVal[P6K_TAS_TARGETZONE_] == P6K_TAS_ON_);
+	  doneMoving = targetZone && !(stringVal[P6K_TAS_TARGETTIMEOUT_] == P6K_TAS_ON_);
 	}
       }
-
-      if (!done) {
+      
+      if (!doneMoving) {
 	*moving = true;
       } else {
 	*moving = false;
       }
-
-      setIntegerParam(pC_->motorStatusDone_, done);
-      setIntegerParam(pC_->motorStatusHighLimit_, ((status[0] & pC_->P6K_STATUS1_POS_LIMIT_SET) != 0) );
-      setIntegerParam(pC_->motorStatusHomed_, homeSignal);
-      //If desired_vel_zero is false && motor activated (ix00=1) && amplifier enabled, set moving=1.
-      setIntegerParam(pC_->motorStatusMoving_, ((status[0] & pC_->P6K_STATUS1_DESIRED_VELOCITY_ZERO) == 0) && ((status[0] & pC_->P6K_STATUS1_MOTOR_ON) != 0) && ((status[0] & pC_->P6K_STATUS1_AMP_ENABLED) != 0) );
-      setIntegerParam(pC_->motorStatusLowLimit_, ((status[0] & pC_->P6K_STATUS1_NEG_LIMIT_SET)!=0) );
-      setIntegerParam(pC_->motorStatusFollowingError_,((status[1] & pC_->P6K_STATUS2_ERR_FOLLOW_ERR) != 0) );
-      fatal_following_ = ((status[1] & pC_->P6K_STATUS2_ERR_FOLLOW_ERR) != 0);
-
-      axisProblemFlag = 0;
-      //Set any axis specific general problem bits.
-      if ( ((status[0] & pC_->PMAX_AXIS_GENERAL_PROB1) != 0) || ((status[1] & pC_->PMAX_AXIS_GENERAL_PROB2) != 0) ) {
-	axisProblemFlag = 1;
+      
+      stat = (setIntegerParam(pC_->motorStatusDone_, 
+	      doneMoving) == asynSuccess) && stat;
+      stat = (setIntegerParam(pC_->motorStatusMoving_, 
+	     (stringVal[P6K_TAS_MOVING_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+      stat = (setIntegerParam(pC_->motorStatusDirection_, 
+	     (stringVal[P6K_TAS_DIRECTION_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+      stat = (setIntegerParam(pC_->motorStatusHighLimit_, 
+	     (stringVal[P6K_TAS_POSLIM_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+      stat = (setIntegerParam(pC_->motorStatusLowLimit_, 
+	     (stringVal[P6K_TAS_NEGLIM_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+      stat = (setIntegerParam(pC_->motorStatusHomed_, 
+	     (stringVal[P6K_TAS_HOMED_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+      stat = (setIntegerParam(pC_->motorStatusHomed_, 
+	     (stringVal[P6K_TAS_HOMED_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+      stat = (setIntegerParam(pC_->motorStatusPowerOn_, 
+	     (stringVal[P6K_TAS_DRIVE_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+      
+      if (driveType_ == P6K_SERVO_) {
+	stat = (setIntegerParam(pC_->motorStatusFollowingError_, 
+               (stringVal[P6K_TAS_POSERROR_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+      } else {
+	stat = (setIntegerParam(pC_->motorStatusFollowingError_, 
+               (stringVal[P6K_TAS_STALL_] == P6K_TAS_ON_)) == asynSuccess) && stat;
       }
-
-      int32_t globalStatus = 0;
-      int32_t feedrate_problem = 0;
-      pC_->getIntegerParam(0, pC_->P6K_C_GlobalStatus_, &globalStatus);
-      pC_->getIntegerParam(0, pC_->P6K_C_FeedRateProblem_, &feedrate_problem);
-      if (globalStatus || feedrate_problem) {
-	axisProblemFlag = 1;
-      }
-      //Check limits disabled bit in ix24, and if we haven't intentially disabled limits
-      //	because we are homing, set the motorAxisProblem bit. Also check the limitsCheckDisable
-      //	flag, which the user can set to disable this feature.
-      if (!limitsCheckDisable_) {
-	//Check we haven't intentially disabled limits for homing.
-	if (!limitsDisabled_) {
-	  sprintf(command, "i%d24", axisNo_);
-	  cmdStatus = pC_->lowLevelWriteRead(command, response);
-	  if (cmdStatus == asynSuccess) {
-	    sscanf(response, "$%x", &limitsDisabledBit);
-	    limitsDisabledBit = ((0x20000 & limitsDisabledBit) >> 17);
-	    if (limitsDisabledBit) {
-	      axisProblemFlag = 1;
-	      if (printErrors) {
-		asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, "*** WARNING *** Limits are disabled on controller %s, axis %d\n", pC_->portName, axisNo_);
-		printNextError_ = false;
-	      }
-
-	    }
-	  }
+      
+      int problem = 0;
+      problem = 
+	(stringVal[P6K_TAS_DRIVEFAULT_] == P6K_TAS_ON_) |
+	(stringVal[P6K_TAS_TARGETTIMEOUT_] == P6K_TAS_ON_) |
+	(stringVal[P6K_TAS_POSERROR_] == P6K_TAS_ON_);
+      stat = (setIntegerParam(pC_->motorStatusProblem_, (problem!=0)) == asynSuccess) && stat;
+      
+      if (!stat) {
+	if (printErrors) {
+	  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+		    "ERROR: Problem setting params on controller %s, axis %d\n", pC_->portName, axisNo_);
+	  printNextError_ = false;
 	}
       }
-      setIntegerParam(pC_->motorStatusProblem_, axisProblemFlag);
-      
-      //Clear error print flag for this axis if problem has been removed.
-      if (axisProblemFlag == 0) {
-	printNextError_ = true;
-      }
-            
-
     }
 
-
-    //Set amplifier enabled bit.
-    if ((status[0] & pC_->P6K_STATUS1_AMP_ENABLED) != 0) {
-      amp_enabled_ = 1;
-    } else {
-      amp_enabled_ = 0;
+    //Clear error print flag for this axis if problem has been removed.
+    if (stat) {
+      printNextError_ = true;
     }
-    setIntegerParam(pC_->motorStatusPowerOn_, amp_enabled_);
     
-    */
-
     return asynSuccess;
 }
 
