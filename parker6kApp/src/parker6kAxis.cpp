@@ -146,7 +146,6 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
 {
   char command[P6K_MAXBUF] = {0};
   char response[P6K_MAXBUF] = {0};
-  asynStatus status = asynSuccess;
   int32_t intVal = 0;
   double doubleVal = 0.0;
   int32_t nvals = 0;
@@ -251,9 +250,9 @@ void p6kAxis::printAxisParams(void)
   printf("Axis %d\n", axisNo_);
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_AXSDEF_, &intVal);
   printf("  "P6K_CMD_AXSDEF": %d\n", intVal);
-  if (intVal == P6K_STEPPER_) {
+  if (static_cast<epicsUInt32>(intVal) == P6K_STEPPER_) {
     printf("  Stepper Drive\n");
-  } else if (intVal == P6K_SERVO_) {
+  } else if (static_cast<epicsUInt32>(intVal) == P6K_SERVO_) {
     printf("  Servo Drive\n");
   } else {
     printf("  Unknown Drive Type\n");
@@ -266,12 +265,12 @@ void p6kAxis::printAxisParams(void)
   printf("  "P6K_CMD_ERES": %d\n", intVal);
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_LS_, &intVal);
   printf("  "P6K_CMD_LS": %d\n", intVal);
-  if (intVal != P6K_LIM_ENABLE_) {
+  if (static_cast<epicsUInt32>(intVal) != P6K_LIM_ENABLE_) {
     printf("  WARNING: One or both soft limits are disabled.\n");
   }
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_LH_, &intVal);
   printf("  "P6K_CMD_LH": %d\n", intVal);
-  if (intVal != P6K_LIM_ENABLE_) {
+  if (static_cast<epicsUInt32>(intVal) != P6K_LIM_ENABLE_) {
     printf("  WARNING: One or both hard limits are disabled.\n");
   }
   pC_->getDoubleParam(axisNo_, pC_->motorHighLimit_, &doubleVal);
@@ -291,8 +290,6 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
-  char acc_buff[P6K_MAXBUF] = {0};
-  char vel_buff[P6K_MAXBUF] = {0};
   char command[P6K_MAXBUF]  = {0};
   char response[P6K_MAXBUF] = {0};
 
@@ -383,8 +380,8 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
 asynStatus p6kAxis::home(double min_velocity, double max_velocity, double acceleration, int32_t forwards)
 {
   asynStatus status = asynError;
-  char command[P6K_MAXBUF] = {0};
-  char response[P6K_MAXBUF] = {0};
+  //  char command[P6K_MAXBUF] = {0};
+  //char response[P6K_MAXBUF] = {0};
   static const char *functionName = "p6kAxis::home";
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
@@ -400,10 +397,8 @@ asynStatus p6kAxis::home(double min_velocity, double max_velocity, double accele
 asynStatus p6kAxis::moveVelocity(double min_velocity, double max_velocity, double acceleration)
 {
   asynStatus status = asynError;
-  char acc_buff[P6K_MAXBUF] = {0};
-  char vel_buff[P6K_MAXBUF] = {0};
-  char command[P6K_MAXBUF]  = {0};
-  char response[P6K_MAXBUF] = {0};
+  //  char command[P6K_MAXBUF]  = {0};
+  //char response[P6K_MAXBUF] = {0};
   static const char *functionName = "p6kAxis::moveVelocity";
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
@@ -430,7 +425,7 @@ asynStatus p6kAxis::setPosition(double position)
   epicsInt32 pos = static_cast<epicsInt32>(floor(position + 0.5));
     
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
-	    "%s: Set axis %d on controller %s to position %f\n", 
+	    "%s: Set axis %d on controller %s to position %d\n", 
 	    functionName, axisNo_, pC_->portName, pos);
 
   sprintf(command, "!%dS", axisNo_);
@@ -452,7 +447,7 @@ asynStatus p6kAxis::setPosition(double position)
   epicsInt32 encpos = (epicsInt32) floor((position*encRatio) + 0.5);
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
-	    "%s: Set encoder axis %d on controller %s to position %f, encRatio: %f\n", 
+	    "%s: Set encoder axis %d on controller %s to position %d, encRatio: %f\n", 
 	    functionName, axisNo_, pC_->portName, pos, encRatio);
 
   sprintf(command, "%dPESET%d", axisNo_, encpos);
@@ -556,18 +551,11 @@ asynStatus p6kAxis::poll(bool *moving)
  */
 asynStatus p6kAxis::getAxisStatus(bool *moving)
 {
-    asynStatus status = asynError;
     char command[P6K_MAXBUF] = {0};
     char response[P6K_MAXBUF] = {0};
-    int32_t cmdStatus = 0;
     bool stat = true;
-    int32_t done = 0;
-    double position = 0; 
-    double enc_position = 0;
     int32_t nvals = 0;
     int32_t axisNum = 0;
-    int32_t axisProblemFlag = 0;
-    int32_t limitsDisabledBit = 0;
     bool printErrors = true;
     int32_t intVal = 0;
     char stringVal[P6K_MAXBUF] = {0};
