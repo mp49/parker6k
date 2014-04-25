@@ -36,6 +36,8 @@ class p6kAxis : public asynMotorAxis
   
   asynStatus getAxisStatus(bool *moving);
   asynStatus getAxisInitialStatus(void);
+  //asynStatus dumpAxisConfig
+
 
   double setpointPosition_;
   double encoderPosition_;

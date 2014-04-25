@@ -28,10 +28,35 @@
 #define P6K_A_DRESString  "P6K_A_DRES"
 #define P6K_A_ERESString  "P6K_A_ERES"
 #define P6K_A_DRIVEString "P6K_A_DRIVE"
+#define P6K_A_AXSDEFString "P6K_A_AXSDEF"
 #define P6K_A_MaxDigitsString "P6K_A_MAXDIGITS"
 #define P6K_A_CommandString "P6K_A_Command"
 
 #define P6K_MAXBUF 1024
+
+//Controller commands
+#define P6K_CMD_A        "A"
+#define P6K_CMD_AA       "AA"
+#define P6K_CMD_AD       "AD"
+#define P6K_CMD_ADA      "ADA"
+#define P6K_CMD_AXSDEF   "AXSDEF"
+#define P6K_CMD_D        "D"
+#define P6K_CMD_DRIVE    "DRIVE"
+#define P6K_CMD_DRES     "DRES"
+#define P6K_CMD_ECHO     "ECHO"
+#define P6K_CMD_ERES     "ERES"
+#define P6K_CMD_GO       "GO"
+#define P6K_CMD_LS       "LS"
+#define P6K_CMD_LSNEG    "LSNEG"
+#define P6K_CMD_LSPOS    "LSPOS"
+#define P6K_CMD_MA       "MA"
+#define P6K_CMD_PESET    "PESET"
+#define P6K_CMD_PSET     "PSET"
+#define P6K_CMD_S        "S"
+#define P6K_CMD_TAS      "TAS"
+#define P6K_CMD_TPC      "TPC"
+#define P6K_CMD_TPE      "TPE"
+#define P6K_CMD_V        "V"
 
 class p6kController : public asynMotorController {
 
@@ -97,36 +122,6 @@ class p6kController : public asynMotorController {
   static const epicsUInt32 P6K_OK_;
   static const epicsUInt32 P6K_ERROR_;
   static const epicsUInt32 P6K_ERROR_PRINT_TIME_;
-
-  /*  static const epicsUInt32 P6K_STATUS1_MAXRAPID_SPEED;    
-  static const epicsUInt32 P6K_STATUS1_ALT_CMNDOUT_MODE;  
-  static const epicsUInt32 P6K_STATUS1_SOFT_POS_CAPTURE;
-  static const epicsUInt32 P6K_STATUS1_ERROR_TRIGGER;
-  static const epicsUInt32 P6K_STATUS1_FOLLOW_ENABLE;   
-  static const epicsUInt32 P6K_STATUS1_FOLLOW_OFFSET;   
-  static const epicsUInt32 P6K_STATUS1_PHASED_MOTOR;   
-  static const epicsUInt32 P6K_STATUS1_ALT_SRC_DEST;    
-  static const epicsUInt32 P6K_STATUS1_USER_SERVO;      
-  static const epicsUInt32 P6K_STATUS1_USER_PHASE;      
-  static const epicsUInt32 P6K_STATUS1_HOMING;          
-  static const epicsUInt32 P6K_STATUS1_BLOCK_REQUEST;   
-  static const epicsUInt32 P6K_STATUS1_DECEL_ABORT;     
-  static const epicsUInt32 P6K_STATUS1_DESIRED_VELOCITY_ZERO;
-  static const epicsUInt32 P6K_STATUS1_DATABLKERR;        
-  static const epicsUInt32 P6K_STATUS1_DWELL;             
-  static const epicsUInt32 P6K_STATUS1_INTEGRATE_MODE;    
-  static const epicsUInt32 P6K_STATUS1_MOVE_TIME_ON;      
-  static const epicsUInt32 P6K_STATUS1_OPEN_LOOP;         
-  static const epicsUInt32 P6K_STATUS1_AMP_ENABLED;       
-  static const epicsUInt32 P6K_STATUS1_X_SERVO_ON;        
-  static const epicsUInt32 P6K_STATUS1_POS_LIMIT_SET;     
-  static const epicsUInt32 P6K_STATUS1_NEG_LIMIT_SET;     
-  static const epicsUInt32 P6K_STATUS1_MOTOR_ON; 
-  
-  static const epicsUInt32 P6K_HARDWARE_PROB;
- static const epicsUInt32  P6K_AXIS_GENERAL_PROB1;
-  static const epicsUInt32 P6K_AXIS_GENERAL_PROB2;
-  */
 
   friend class p6kAxis;
 

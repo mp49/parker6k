@@ -41,6 +41,8 @@ const epicsUInt32 p6kController::P6K_FORCED_FAST_POLLS_ = 10;
 const epicsUInt32 p6kController::P6K_OK_ = 0;
 const epicsUInt32 p6kController::P6K_ERROR_ = 1;
 
+
+
 //C function prototypes, for the functions that can be called on IOC shell.
 //Some of these functions are provided to ease transition to the model 3 driver. Some of these
 //functions could be handled by the parameter library.
@@ -100,10 +102,12 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_C_LastParamString,        asynParamInt32, &P6K_C_LastParam_);
 
   //Create axis specific parameters
+  //createParam adds the parameters to all param lists automatically (using maxAddr).
   printf("%s: Create axis parameters.\n", functionName);
   createParam(P6K_A_DRESString,             asynParamInt32, &P6K_A_DRES_);
   createParam(P6K_A_ERESString,             asynParamInt32, &P6K_A_ERES_);
   createParam(P6K_A_DRIVEString,            asynParamInt32, &P6K_A_DRIVE_);
+  createParam(P6K_A_AXSDEFString,           asynParamInt32, &P6K_A_AXSDEF_);
   createParam(P6K_A_MaxDigitsString,        asynParamInt32, &P6K_A_MaxDigits_);
   createParam(P6K_A_CommandString,          asynParamOctet, &P6K_A_Command_);
   
@@ -123,10 +127,10 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   //Disable command echo
   char command[P6K_MAXBUF_] = {0};
   char response[P6K_MAXBUF_] = {0};
-  sprintf(command, "ECHO0");
+  snprintf(command, P6K_MAXBUF_, "%s0", P6K_CMD_ECHO);
   if (lowLevelWriteRead(command, response) != asynSuccess) {
     asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
-	      "%s: Turning off ECHO failed.\n", functionName);
+	      "%s: Turning off %s failed.\n", functionName, P6K_CMD_ECHO);
   } else {
 
     startPoller(movingPollPeriod, idlePollPeriod, P6K_FORCED_FAST_POLLS_);
@@ -235,9 +239,6 @@ asynStatus p6kController::printConnectedStatus()
 
 /**
  * Wrapper for asynOctetSyncIO write/read functions.
- * The P6K will send back a command with a \r\r\n> \n>
- * The low level port asyn EOS will remove the first >. 
- * We deal with the rest in this function 
  * @param command - String command to send.
  * @response response - String response back.
  */
@@ -281,6 +282,9 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
     }
   }
 
+  //The P6K will send back a command with a \r\r\n> \n>
+  //The low level port asyn EOS will remove the first >
+  //We deal with the rest in this function
   status = trimResponse(temp, response);
   
   asynPrint(lowLevelPortUser_, ASYN_TRACEIO_DRIVER, "%s: response: %s\n", functionName, response); 
@@ -386,13 +390,13 @@ asynStatus p6kController::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
 
         /* ignore for now, but I think I will need to do:
 
-      sprintf(command, "%dLS1", pAxis->axisNo_);
+      sprintf(command, "%d%s1", pAxis->axisNo_, P6K_CMD_LS_);
       if ( command[0] != 0 && status) {
          status = (lowLevelWriteRead(command, response) == asynSuccess) && status;
       }
       memset(command, 0, sizeof(command));
       
-      sprintf(command, "%dLSNEG", pAxis->axisNo_, limit);
+      sprintf(command, "%d%s%d", pAxis->axisNo_, P6K_CMD_LSNEG_, limit);
       
      */
     asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW,
@@ -405,13 +409,13 @@ asynStatus p6kController::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
 
       /* ignore for now, but I think I will need to do:
 
-      sprintf(command, "%dLS1", pAxis->axisNo_);
+      sprintf(command, "%d%s1", pAxis->axisNo_, P6K_CMD_LS_);
       if ( command[0] != 0 && status) {
          status = (lowLevelWriteRead(command, response) == asynSuccess) && status;
       }
       memset(command, 0, sizeof(command));
       
-      sprintf(command, "%dLSPOS", pAxis->axisNo_, limit);
+      sprintf(command, "%d%s%d", pAxis->axisNo_, P6K_CMD_LSPOS_, limit);
       
      */
     asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW,

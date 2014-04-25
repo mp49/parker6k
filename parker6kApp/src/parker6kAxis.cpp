@@ -141,6 +141,7 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
   int nvals = 0;
   int softLimit = 0;
   int axisNum = 0;
+  bool stat = true;
 
   static const char *functionName = "p6kAxis::getAxisInitialStatus";
 
@@ -148,77 +149,80 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
 
   if (axisNo_ != 0) {
 
-    //This may have to be sent by the controller class. Not sure if prepending the axis number works.
-    sprintf(command, "%dAXSDEF", axisNo_);
-    status = pC_->lowLevelWriteRead(command, response);
-    cout << "Reading AXSDEF: " << response << endl;
-    if (status == asynSuccess) {
-      nvals = sscanf(response, "%dAXSDEF%d", &axisNum, &intVal);    
+    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_AXSDEF);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    if (stat) {
+      nvals = sscanf(response, "%d"P6K_CMD_AXSDEF"%d", &axisNum, &intVal);    
       setIntegerParam(pC_->P6K_A_AXSDEF_, intVal);
     }
 
-    sprintf(command, "%dDRES", axisNo_);
-    status = pC_->lowLevelWriteRead(command, response);
-    cout << "Reading DRES: " << response << endl;
-    if (status == asynSuccess) {
-      nvals = sscanf(response, "%dDRES%d", &axisNum, &intVal);    
+    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_DRES);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    if (stat) {
+      nvals = sscanf(response, "%d"P6K_CMD_DRES"%d", &axisNum, &intVal);    
       setIntegerParam(pC_->P6K_A_DRES_, intVal);
     }
 
-    sprintf(command, "%dERES", axisNo_);
-    status = pC_->lowLevelWriteRead(command, response);
-    cout << "Reading ERES: " << response << endl;
-    if (status == asynSuccess) {
-      nvals = sscanf(response, "%dERES%d", &axisNum, &intVal);
+    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_ERES);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    if (stat) {
+      nvals = sscanf(response, "%d"P6K_CMD_ERES"%d", &axisNum, &intVal);
       setIntegerParam(pC_->P6K_A_ERES_, intVal);
     }
 
-    sprintf(command, "%dDRIVE", axisNo_);
-    status = pC_->lowLevelWriteRead(command, response);
-    cout << "Reading DRIVE: " << response << endl;
-    if (status == asynSuccess) {
-      nvals = sscanf(response, "%dDRIVE%d", &axisNum, &intVal);
+    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_DRIVE);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    if (stat) {
+      nvals = sscanf(response, "%d"P6K_CMD_DRIVE"%d", &axisNum, &intVal);
       setIntegerParam(pC_->P6K_A_DRIVE_, intVal);
     }
     
-    sprintf(command, "%dLS", axisNo_);
-    status = pC_->lowLevelWriteRead(command, response);
-    cout << "Reading LS: " << response << endl;
-    if (status == asynSuccess) {
-      nvals = sscanf(response, "%dLS%d", &axisNum, &softLimit);
+    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_LS);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    if (stat) {
+      nvals = sscanf(response, "%d"P6K_CMD_LS"%d", &axisNum, &softLimit);
     }
-    sprintf(command, "%dLSPOS", axisNo_);
-    status = pC_->lowLevelWriteRead(command, response);
-    cout << "Reading LSPOS: " << response << endl;
-    if (status == asynSuccess) {
-      nvals = sscanf(response, "%dLSPOS%f", &axisNum, &doubleVal);
+    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_LSPOS);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    if (stat) {
+      cout << response << endl;
+      cout << doubleVal << endl;
+      nvals = sscanf(response, "%d"P6K_CMD_LSPOS"%f", &axisNum, &doubleVal);
       setDoubleParam(pC_->motorHighLimit_, doubleVal);
+      cout << doubleVal << endl;
     }
-    sprintf(command, "%dLSNEG", axisNo_);
-    status = pC_->lowLevelWriteRead(command, response);
-    cout << "Reading LSNEG: " << response << endl;
-    if (status == asynSuccess) {
-      nvals = sscanf(response, "%dLSNEG%f", &axisNum, &doubleVal);
+    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_LSNEG);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    if (stat) {
+      cout << response << endl;
+      cout << doubleVal << endl;
+      nvals = sscanf(response, "%d"P6K_CMD_LSNEG"%f", &axisNum, &doubleVal);
       setDoubleParam(pC_->motorLowLimit_, doubleVal);
+      cout << doubleVal << endl;
     }
    
+  }
+
+  if (!stat) {
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+	      "%s ERROR: Could not read all axis parameters at startup.", functionName);
   }
   
   printf("Axis %d\n", axisNo_);
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_DRIVE_, &intVal);
-  printf("  DRIVE: %d\n", intVal);
+  printf("  "P6K_CMD_DRIVE": %d\n", intVal);
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_DRES_, &intVal);  
-  printf("  DRES: %d\n", intVal);
+  printf("  "P6K_CMD_DRES": %d\n", intVal);
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_ERES_, &intVal);
-  printf("  ERES: %d\n", intVal);
-  printf("  LS: %d\n", softLimit);
+  printf("  "P6K_CMD_ERES": %d\n", intVal);
+  printf("  "P6K_CMD_LS": %d\n", softLimit);
   if (softLimit != 3) {
     printf("  WARNING: One or both soft limits are disabled.\n");
   }
   pC_->getDoubleParam(axisNo_, pC_->motorHighLimit_, &doubleVal);
-  printf("  LSPOS: %d\n", intVal);
+  printf("  "P6K_CMD_LSPOS": %f\n", doubleVal);
   pC_->getDoubleParam(axisNo_, pC_->motorLowLimit_, &doubleVal);
-  printf("  LSNEG: %d\n", intVal);
+  printf("  "P6K_CMD_LSNEG": %f\n", doubleVal);
   
   return asynSuccess;
 }
@@ -301,10 +305,6 @@ asynStatus p6kAxis::move(double position, int relative, double min_velocity, dou
       memset(command, 0, sizeof(command));
 
       sprintf(command, "%dADA%.*f", axisNo_, maxDigits, accel);
-      status = pC_->lowLevelWriteRead(command, response);
-      memset(command, 0, sizeof(command));
-
-      sprintf(command, "%dADA%.*f", axisNo_, maxDigits, accel/2);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
     }
