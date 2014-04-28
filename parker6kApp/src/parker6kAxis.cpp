@@ -50,9 +50,6 @@ const epicsUInt32 p6kAxis::P6K_TAS_GOWHENPEND_    = 31;
 const epicsUInt32 p6kAxis::P6K_TAS_MOVEPEND_      = 33; 
 const epicsUInt32 p6kAxis::P6K_TAS_PREEMPT_       = 36;
 
-const char p6kAxis::P6K_TAS_ON_       = '1';
-const char p6kAxis::P6K_TAS_OFF_      = '0';
-
 const epicsUInt32 p6kAxis::P6K_STEPPER_       = 0;
 const epicsUInt32 p6kAxis::P6K_SERVO_       = 1;
 
@@ -118,9 +115,10 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   paramStatus = ((setIntegerParam(pC_->P6K_A_ERES_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_DRIVE_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_MaxDigits_, 2) == asynSuccess) && paramStatus);
-  paramStatus = ((setIntegerParam(pC_->motorStatusHasEncoder_, 1) == asynSuccess) && paramStatus);
+  paramStatus = ((setIntegerParam(pC_->motorStatusHasEncoder_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->motorStatusGainSupport_, 1) == asynSuccess) && paramStatus);
   paramStatus = ((setStringParam(pC_->P6K_A_Command_, " ") == asynSuccess) && paramStatus);
+  paramStatus = ((setStringParam(pC_->P6K_A_Command_RBV_, " ") == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_LS_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_LH_, 0) == asynSuccess) && paramStatus);
   if (!paramStatus) {
@@ -231,14 +229,16 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
    
   }
 
-  //setIntegerParam(pC_->motorStatusGainSupport_, 1);
+  setIntegerParam(pC_->motorStatusHasEncoder_, 1);
 
   if (!stat) {
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
 	      "%s ERROR: Could not read all axis parameters at startup.", functionName);
+    setIntegerParam(pC_->motorStatusCommsError_, 1);
+  } else {
+    printAxisParams();
   }
   
-  printAxisParams();
   
   return asynSuccess;
 }
@@ -513,8 +513,10 @@ asynStatus p6kAxis::setClosedLoop(bool closedLoop)
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
  
   if (closedLoop) {
+    cout << "Turn drive on." << endl;
     sprintf(command, "%dDRIVE1",  axisNo_);
   } else {
+        cout << "Turn drive off." << endl;
     sprintf(command, "%dDRIVE0",  axisNo_);
   }
   status = pC_->lowLevelWriteRead(command, response);
@@ -587,7 +589,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       printErrors = 1;
     }
 
-    printf("Axis: %d\n", axisNo_);
+    //printf("Axis: %d\n", axisNo_);
 
     /* Transfer current position and encoder position.*/
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPC);
@@ -598,7 +600,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     }
     memset(command, 0, sizeof(command));
 
-    printf("  Position: %d\n", intVal);
+    //printf("  Position: %d\n", intVal);
 
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPE);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
@@ -608,19 +610,18 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     }
     memset(command, 0, sizeof(command));
 
-    printf("  Enc Position: %d\n", intVal);
+    //printf("  Enc Position: %d\n", intVal);
 
     /* Transfer axis status */
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TAS);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
     if (stat) {
-      printf("  Status response: %s\n", response);
+      //printf("  Status response: %s\n", response);
       nvals = sscanf(response, "%d"P6K_CMD_TAS"%s", &axisNum, stringVal);
-      setDoubleParam(pC_->motorEncoderPosition_, intVal);
     }
     memset(command, 0, sizeof(command));
 
-    printf("  Status string: %s\n", stringVal);
+    //printf("  Status string: %s\n", stringVal);
 
     if (!stat) {
       if (printErrors) {
@@ -634,13 +635,13 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       if (deferredMove_) {
 	doneMoving = false; 
       } else {
-	doneMoving = !(stringVal[P6K_TAS_MOVING_] == P6K_TAS_ON_);
+	doneMoving = !(stringVal[P6K_TAS_MOVING_] == pC_->P6K_ON_);
       }
       
       if (doneMoving) {
 	if (driveType_ == P6K_SERVO_) {
-	  bool targetZone = (stringVal[P6K_TAS_TARGETZONE_] == P6K_TAS_ON_);
-	  doneMoving = targetZone && !(stringVal[P6K_TAS_TARGETTIMEOUT_] == P6K_TAS_ON_);
+	  bool targetZone = (stringVal[P6K_TAS_TARGETZONE_] == pC_->P6K_ON_);
+	  doneMoving = targetZone && !(stringVal[P6K_TAS_TARGETTIMEOUT_] == pC_->P6K_ON_);
 	}
       }
       
@@ -649,37 +650,42 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       } else {
 	*moving = false;
       }
+
+      //TODO: Also read TER status here, as there is more info this status message
+      
       
       stat = (setIntegerParam(pC_->motorStatusDone_, 
 	      doneMoving) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusMoving_, 
-	     (stringVal[P6K_TAS_MOVING_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+	     (stringVal[P6K_TAS_MOVING_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusDirection_, 
-	     (stringVal[P6K_TAS_DIRECTION_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+	     (stringVal[P6K_TAS_DIRECTION_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusHighLimit_, 
-	     (stringVal[P6K_TAS_POSLIM_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+	     (stringVal[P6K_TAS_POSLIM_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusLowLimit_, 
-	     (stringVal[P6K_TAS_NEGLIM_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+	     (stringVal[P6K_TAS_NEGLIM_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusHomed_, 
-	     (stringVal[P6K_TAS_HOMED_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+	     (stringVal[P6K_TAS_HOMED_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusHomed_, 
-	     (stringVal[P6K_TAS_HOMED_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+	     (stringVal[P6K_TAS_HOMED_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusPowerOn_, 
-	     (stringVal[P6K_TAS_DRIVE_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+	     (stringVal[P6K_TAS_DRIVE_] == pC_->P6K_OFF_)) == asynSuccess) && stat;
       
+      cout << "TAS DRIVE BIT: " << stringVal[P6K_TAS_DRIVE_] << endl;
+
       if (driveType_ == P6K_SERVO_) {
 	stat = (setIntegerParam(pC_->motorStatusFollowingError_, 
-               (stringVal[P6K_TAS_POSERROR_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+               (stringVal[P6K_TAS_POSERROR_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       } else {
 	stat = (setIntegerParam(pC_->motorStatusFollowingError_, 
-               (stringVal[P6K_TAS_STALL_] == P6K_TAS_ON_)) == asynSuccess) && stat;
+               (stringVal[P6K_TAS_STALL_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       }
       
       int problem = 0;
       problem = 
-	(stringVal[P6K_TAS_DRIVEFAULT_] == P6K_TAS_ON_) |
-	(stringVal[P6K_TAS_TARGETTIMEOUT_] == P6K_TAS_ON_) |
-	(stringVal[P6K_TAS_POSERROR_] == P6K_TAS_ON_);
+	(stringVal[P6K_TAS_DRIVEFAULT_] == pC_->P6K_ON_) |
+	(stringVal[P6K_TAS_TARGETTIMEOUT_] == pC_->P6K_ON_) |
+	(stringVal[P6K_TAS_POSERROR_] == pC_->P6K_ON_);
       stat = (setIntegerParam(pC_->motorStatusProblem_, (problem!=0)) == asynSuccess) && stat;
       
       if (!stat) {

@@ -41,7 +41,18 @@ const epicsUInt32 p6kController::P6K_FORCED_FAST_POLLS_ = 10;
 const epicsUInt32 p6kController::P6K_OK_ = 0;
 const epicsUInt32 p6kController::P6K_ERROR_ = 1;
 
+const char * p6kController::P6K_ASYN_IEOS_ = ">";
+const char * p6kController::P6K_ASYN_OEOS_ = "\n";
 
+const char p6kController::P6K_ON_       = '1';
+const char p6kController::P6K_OFF_      = '0';
+
+/* TSS Status Bits (position in char array, not TSS bit position) */
+const epicsUInt32 p6kController::P6K_TSS_SYSTEMREADY_ = 0;
+const epicsUInt32 p6kController::P6K_TSS_PROGRUNNING_ = 2;
+const epicsUInt32 p6kController::P6K_TSS_IMMEDIATE_   = 3;
+const epicsUInt32 p6kController::P6K_TSS_CMDERROR_    = 12;
+const epicsUInt32 p6kController::P6K_TSS_MEMERROR_    = 26;
 
 //C function prototypes, for the functions that can be called on IOC shell.
 //Some of these functions are provided to ease transition to the model 3 driver. Some of these
@@ -99,6 +110,12 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_C_GlobalStatusString,     asynParamInt32, &P6K_C_GlobalStatus_);
   createParam(P6K_C_CommsErrorString,       asynParamInt32, &P6K_C_CommsError_);
   createParam(P6K_C_CommandString,          asynParamOctet, &P6K_C_Command_);
+  createParam(P6K_C_CommandRBVString,       asynParamOctet, &P6K_C_Command_RBV_);
+  createParam(P6K_C_TSS_SystemReadyString,  asynParamInt32, &P6K_C_TSS_SystemReady_);
+  createParam(P6K_C_TSS_ProgRunningString,  asynParamInt32, &P6K_C_TSS_ProgRunning_);
+  createParam(P6K_C_TSS_ImmediateString,    asynParamInt32, &P6K_C_TSS_Immediate_);
+  createParam(P6K_C_TSS_CmdErrorString,     asynParamInt32, &P6K_C_TSS_CmdError_);
+  createParam(P6K_C_TSS_MemErrorString,     asynParamInt32, &P6K_C_TSS_MemError_);
   createParam(P6K_C_LastParamString,        asynParamInt32, &P6K_C_LastParam_);
 
   //Create axis specific parameters
@@ -112,6 +129,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_A_LSString,               asynParamInt32, &P6K_A_LS_);
   createParam(P6K_A_LHString,               asynParamInt32, &P6K_A_LH_);
   createParam(P6K_A_CommandString,          asynParamOctet, &P6K_A_Command_);
+  createParam(P6K_A_CommandRBVString,       asynParamOctet, &P6K_A_Command_RBV_);
   
   //Connect our Asyn user to the low level port that is a parameter to this constructor
   //NOTE:
@@ -119,7 +137,9 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   // The low level port EOS will remove the first >. 
   // We will need to deal with the rest in p6kController::lowLevelWriteRead
   printf("%s: Connect to low level Asyn port.\n", functionName);
-  if (lowLevelPortConnect(lowLevelPortName, lowLevelPortAddress, &lowLevelPortUser_, ">", "\n") != asynSuccess) {
+  //const char * ieos = P6K_ASYN_IEOS_;
+  //const char * oeos = P6K_ASYN_OEOS_;
+  if (lowLevelPortConnect(lowLevelPortName, lowLevelPortAddress, &lowLevelPortUser_, P6K_ASYN_IEOS_, P6K_ASYN_OEOS_) != asynSuccess) {
     printf("%s: Failed to connect to low level asynOctetSyncIO port %s\n", functionName, lowLevelPortName);
     setIntegerParam(P6K_C_CommsError_, P6K_ERROR_);
   } else {
@@ -140,6 +160,12 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
     bool paramStatus = true;
     paramStatus = ((setIntegerParam(P6K_C_GlobalStatus_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setStringParam(P6K_C_Command_, " ") == asynSuccess) && paramStatus);
+    paramStatus = ((setStringParam(P6K_C_Command_RBV_, " ") == asynSuccess) && paramStatus);
+    paramStatus = ((setIntegerParam(P6K_C_TSS_SystemReady_, 0) == asynSuccess) && paramStatus);
+    paramStatus = ((setIntegerParam(P6K_C_TSS_ProgRunning_, 0) == asynSuccess) && paramStatus);
+    paramStatus = ((setIntegerParam(P6K_C_TSS_Immediate_, 0) == asynSuccess) && paramStatus);
+    paramStatus = ((setIntegerParam(P6K_C_TSS_CmdError_, 0) == asynSuccess) && paramStatus);
+    paramStatus = ((setIntegerParam(P6K_C_TSS_MemError_, 0) == asynSuccess) && paramStatus);
 
     callParamCallbacks();
 
@@ -169,7 +195,7 @@ p6kController::~p6kController(void)
  * @param outputEos The output EOS character
  * @return asynStatus  
  */
-asynStatus p6kController::lowLevelPortConnect(const char *port, int addr, asynUser **ppasynUser, char *inputEos, char *outputEos)
+asynStatus p6kController::lowLevelPortConnect(const char *port, int addr, asynUser **ppasynUser, const char *inputEos, const char *outputEos)
 {
   asynStatus status = asynSuccess;
  
@@ -371,8 +397,6 @@ asynStatus p6kController::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
   p6kAxis *pAxis = NULL;
   char command[P6K_MAXBUF_] = {0};
   char response[P6K_MAXBUF_] = {0};
-  double encRatio = 1.0;
-  epicsInt32 encposition = 0;
 	
   static const char *functionName = "p6kController::writeFloat64";
 
@@ -496,17 +520,38 @@ asynStatus p6kController::writeOctet(asynUser *pasynUser, const char *value,
 {
     int function = pasynUser->reason;
     asynStatus status = asynSuccess;
+    p6kAxis *pAxis = NULL;
+    char command[P6K_MAXBUF_] = {0};
+    char response[P6K_MAXBUF_] = {0};
     const char *functionName = "parker6kController::writeOctet";
 
     asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s.\n", functionName);
+
+    pAxis = this->getAxis(pasynUser);
+    if (!pAxis) {
+      return asynError;
+    } 
     
     if (function == P6K_C_Command_) {
       //Send command to controller
-      cout << functionName << "  Command: " << value << endl;
+      snprintf(command, P6K_MAXBUF_, "%s", value);
+      if (lowLevelWriteRead(command, response) != asynSuccess) {
+	asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		  "%s: Command %s failed.\n", functionName, command);
+      } else {
+	setStringParam(P6K_C_Command_RBV_, response);
+      }
     } else if (function == P6K_A_Command_) {
       //Send axis specific command to controller. This supports the 
-      //primitive commands PREM and POST.
-      cout << functionName << "  Axis Command: " << value << endl;
+      //primitive commands PREM and POST.?
+      //This adds on the axis number to the command
+      snprintf(command, P6K_MAXBUF_, "%d%s", pAxis->axisNo_, value);
+      if (lowLevelWriteRead(command, response) != asynSuccess) {
+	asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		  "%s: Command %s failed for axis %d.\n", functionName, command, pAxis->axisNo_);
+      } else {
+	setStringParam(P6K_A_Command_RBV_, response);
+      }
     } else {
       status = asynMotorController::writeOctet(pasynUser, value, nChars, nActual);
     }
@@ -561,9 +606,13 @@ p6kAxis* p6kController::getAxis(int axisNo)
  */
 asynStatus p6kController::poll()
 {
-  epicsUInt32 globalStatus = 0;
+  char command[P6K_MAXBUF] = {0};
+  char response[P6K_MAXBUF] = {0};
+  bool stat = true;
+  int32_t nvals = 0;
   bool printErrors = 0;
-  bool status = true;
+  int32_t intVal = 0;
+  char stringVal[P6K_MAXBUF] = {0};
   static const char *functionName = "p6kController::poll";
 
   asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
@@ -588,92 +637,52 @@ asynStatus p6kController::poll()
   
   //Set any controller specific parameters. 
   //Some of these may be used by the axis poll to set axis problem bits.
-  status = (getGlobalStatus(&globalStatus) == asynSuccess) && status;
-  //status = (setIntegerParam(this->P6K_C_GlobalStatus_, ((globalStatus & P6K_HARDWARE_PROB) != 0)) == asynSuccess) && status;
 
-  /*if (status && feedRatePoll_) {
-    status = (setIntegerParam(this->P6K_C_FeedRate_, feedrate) == asynSuccess) && status;
-    status = (getIntegerParam(this->P6K_C_FeedRateLimit_, &feedrate_limit) == asynSuccess) && status;
-    if (feedrate < static_cast<int>(feedrate_limit-P6K_FEEDRATE_DEADBAND_)) {
-      status = (setIntegerParam(this->P6K_C_FeedRateProblem_, P6K_ERROR_) == asynSuccess) && status;
-      if (printErrors) {
-	asynPrint(lowLevelPortUser_, ASYN_TRACE_ERROR, 
-		  "%s: *** ERROR ***: global feed rate below limit. feedrate: %d, feedrate limit %d\n", functionName, feedrate, feedrate_limit);
-	printNextError_ = false;
-      }
-    } else {
-      status = (setIntegerParam(this->P6K_C_FeedRateProblem_, P6K_OK_) == asynSuccess) && status;
-      printNextError_ = true;
-    }
-    }*/
+  //NOTE: do we have to use TLIM to monitor limit status?
+  //See: https://trac.sns.gov/slowcontrols/ticket/125
+  //Can't read back TLIM for one axis, only all axes at once.
+  //So it's a 'controller' command.
   
+
+  /* Transfer system status */
+  snprintf(command, P6K_MAXBUF, "%s", P6K_CMD_TSS);
+  stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
+  if (stat) {
+    //printf("  Status response: %s\n", response);
+    nvals = sscanf(response, P6K_CMD_TSS"%s", stringVal);
+  }
+  memset(command, 0, sizeof(command));
+  
+  //printf("  Status string: %s\n", stringVal);
+   
+  if (stat) {
+    stat = (setIntegerParam(P6K_C_TSS_SystemReady_, (stringVal[P6K_TSS_SYSTEMREADY_] == P6K_ON_)) == asynSuccess) && stat;
+    stat = (setIntegerParam(P6K_C_TSS_ProgRunning_, (stringVal[P6K_TSS_PROGRUNNING_] == P6K_ON_)) == asynSuccess) && stat;
+    stat = (setIntegerParam(P6K_C_TSS_Immediate_,   (stringVal[P6K_TSS_IMMEDIATE_]   == P6K_ON_)) == asynSuccess) && stat;
+    stat = (setIntegerParam(P6K_C_TSS_CmdError_,    (stringVal[P6K_TSS_CMDERROR_]    == P6K_ON_)) == asynSuccess) && stat;
+    stat = (setIntegerParam(P6K_C_TSS_MemError_,    (stringVal[P6K_TSS_MEMERROR_]    == P6K_ON_)) == asynSuccess) && stat;
+  }
+
   callParamCallbacks();
 
-  if (!status) {
-    asynPrint(lowLevelPortUser_, ASYN_TRACE_ERROR, "%s: Error reading or setting params.\n", functionName);
+  if (!stat) {
+    if (printErrors) {
+      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		"ERROR: Problem reading status on controller %s\n", 
+		this->portName);
+    }
     setIntegerParam(P6K_C_CommsError_, P6K_ERROR_);
+    printNextError_ = false;
     return asynError;
   } else {
     setIntegerParam(P6K_C_CommsError_, P6K_OK_);
+    printNextError_ = true;
     return asynSuccess;
   }
 }
 
 
-/**
- * Read the P6K global status integer
- * @param int The global status integer
- * @param int The global feed rate
- */
-asynStatus p6kController::getGlobalStatus(epicsUInt32 *globalStatus)
-{
-  //char command[P6K_MAXBUF_];
-  //char response[P6K_MAXBUF_];
-  int nvals = 0;
-  asynStatus status = asynSuccess;
-  static const char *functionName = "p6kController::getGlobalStatus";
 
-  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
-  /*
-  sprintf(command, "???");
-  if (lowLevelWriteRead(command, response) != asynSuccess) {
-    asynPrint(lowLevelPortUser_, ASYN_TRACE_ERROR, "%s: Error reading ???.\n", functionName);
-    status = asynError;
-  } else {
-    nvals = sscanf(response, "%6x", globalStatus);
-    if (nvals != 1) {
-      asynPrint(lowLevelPortUser_, ASYN_TRACE_ERROR, "%s: Error reading ???. nvals: %d, response: %s\n", functionName, nvals, response);
-      status = asynError;
-    } else {
-      status = asynSuccess;
-    }
-  }
-
-  if (feedrate_poll) {
-    sprintf(command, "%%");
-    if (lowLevelWriteRead(command, response) != asynSuccess) {
-      asynPrint(lowLevelPortUser_, ASYN_TRACE_ERROR, "%s: Error reading feedrate.\n", functionName);
-      status = asynError;
-    } else {
-      nvals = sscanf(response, "%d", feedrate);
-      if (nvals != 1) {
-	asynPrint(lowLevelPortUser_, ASYN_TRACE_ERROR, "%s: Error reading feedrate: nvals: %d, response: %s\n", functionName, nvals, response);
-	status = asynError;
-      } else {
-	status = asynSuccess;
-      }
-    }
-    }*/
-  
-  if (status == asynSuccess) {
-    setIntegerParam(P6K_C_CommsError_, P6K_OK_);
-  } else {
-    setIntegerParam(P6K_C_CommsError_, P6K_ERROR_);
-  }
-
-  return status;
-
-}
 
 /**
  * Disable the check in the axis poller that reads ix24 to check if hardware limits

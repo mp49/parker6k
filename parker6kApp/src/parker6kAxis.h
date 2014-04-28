@@ -88,10 +88,7 @@ class p6kAxis : public asynMotorAxis
   static const epicsUInt32 P6K_TAS_GOWHENPEND_;
   static const epicsUInt32 P6K_TAS_MOVEPEND_;
   static const epicsUInt32 P6K_TAS_PREEMPT_;
- 
-  static const char P6K_TAS_ON_;
-  static const char P6K_TAS_OFF_;
-  
+   
   static const epicsUInt32 P6K_STEPPER_;
   static const epicsUInt32 P6K_SERVO_;
 
