@@ -40,6 +40,7 @@
 #define P6K_A_CommandRBVString "P6K_A_COMMAND_RBV"
 #define P6K_A_LSString         "P6K_A_LS"
 #define P6K_A_LHString         "P6K_A_LH"
+#define P6K_A_ErrorString      "P6K_A_ERROR"
 
 #define P6K_MAXBUF 1024
 
@@ -49,6 +50,7 @@
 #define P6K_CMD_AD       "AD"
 #define P6K_CMD_ADA      "ADA"
 #define P6K_CMD_AXSDEF   "AXSDEF"
+#define P6K_CMD_COMEXC   "COMEXC"
 #define P6K_CMD_D        "D"
 #define P6K_CMD_DRIVE    "DRIVE"
 #define P6K_CMD_DRES     "DRES"
@@ -112,6 +114,7 @@ class p6kController : public asynMotorController {
   int P6K_A_Command_;
   int P6K_C_Command_RBV_;
   int P6K_A_Command_RBV_;
+  int P6K_A_Error_;
   int P6K_C_TSS_SystemReady_;
   int P6K_C_TSS_ProgRunning_;
   int P6K_C_TSS_Immediate_;
@@ -130,6 +133,7 @@ class p6kController : public asynMotorController {
   bool printNextError_;
   asynStatus lowLevelWriteRead(const char *command, char *response);
   asynStatus trimResponse(char *input, char *output);
+  asynStatus errorResponse(char *input, char *output);
   asynStatus lowLevelPortConnect(const char *port, int addr, asynUser **ppasynUser, const char *inputEos, const char *outputEos);
 
   asynStatus processDeferredMoves(void);

@@ -130,6 +130,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_A_LHString,               asynParamInt32, &P6K_A_LH_);
   createParam(P6K_A_CommandString,          asynParamOctet, &P6K_A_Command_);
   createParam(P6K_A_CommandRBVString,       asynParamOctet, &P6K_A_Command_RBV_);
+  createParam(P6K_A_ErrorString,            asynParamOctet, &P6K_A_Error_);
   
   //Connect our Asyn user to the low level port that is a parameter to this constructor
   //NOTE:
@@ -146,15 +147,24 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
     setIntegerParam(P6K_C_CommsError_, P6K_OK_);
   }
 
-  //Disable command echo
   char command[P6K_MAXBUF_] = {0};
   char response[P6K_MAXBUF_] = {0};
+
+  //Disable command echo
   snprintf(command, P6K_MAXBUF_, "%s0", P6K_CMD_ECHO);
   if (lowLevelWriteRead(command, response) != asynSuccess) {
     asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
 	      "%s: Turning off %s failed.\n", functionName, P6K_CMD_ECHO);
   } else {
 
+    memset(command, 0, sizeof(command));
+    //Enable continuous command execution mode
+    snprintf(command, P6K_MAXBUF_, "%s1", P6K_CMD_COMEXC);
+    if (lowLevelWriteRead(command, response) != asynSuccess) {
+      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		"%s: Continuous command execution mode (%s) failed.\n", functionName, P6K_CMD_COMEXC);
+    }
+    
     startPoller(movingPollPeriod, idlePollPeriod, P6K_FORCED_FAST_POLLS_);
 
     bool paramStatus = true;
@@ -249,7 +259,7 @@ asynStatus p6kController::lowLevelPortConnect(const char *port, int addr, asynUs
 asynStatus p6kController::printConnectedStatus()
 {
   asynStatus status = asynSuccess;
-  int asynManagerConnected = 0;
+  int32_t asynManagerConnected = 0;
   static const char *functionName = "p6kController::printConnectedStatus";
   
   if (lowLevelPortUser_) {
@@ -273,10 +283,10 @@ asynStatus p6kController::printConnectedStatus()
 asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
 {
   asynStatus status = asynSuccess;
-  int eomReason = 0;
+  int32_t eomReason = 0;
   size_t nwrite = 0;
   size_t nread = 0;
-  int commsError = 0;
+  int32_t commsError = 0;
   char temp[P6K_MAXBUF_] = {0};
   static const char *functionName = "p6kController::lowLevelWriteRead";
 
@@ -310,14 +320,60 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
     }
   }
 
-  //The P6K will send back a command with a \r\r\n> \n>
-  //The low level port asyn EOS will remove the first >
-  //We deal with the rest in this function
-  status = trimResponse(temp, response);
-  
+  //Search for an error response
+  status = errorResponse(temp, response);
+  if (status == asynSuccess) {
+    asynPrint(lowLevelPortUser_, ASYN_TRACE_ERROR, 
+	      "%s: ERROR: Command %s returned an error: %s\n", functionName, command, response);
+    status = asynError;
+  } else {
+    //Deal with a successful command
+    //The P6K will send back a command with a \r\r\n> \n>
+    //The low level port asyn EOS will remove the first >
+    //We deal with the rest in this function
+    status = trimResponse(temp, response);
+  }  
+
   asynPrint(lowLevelPortUser_, ASYN_TRACEIO_DRIVER, "%s: response: %s\n", functionName, response); 
   
   return status;
+}
+
+/**
+ * The P6K will send back an error string with a ? prompt afterwards it.
+ * We search for this before dealing with a successful command. An error
+ * response would have caused an Asyn timeout, because there was no standard
+ * IEOS character and by defaut we search for the character that terminates a
+ * successful command.
+ * @param input - input buffer. This will be modified.
+ * @param output - output buffer. No bigger than P6K_MAXBUF_.
+ */
+asynStatus p6kController::errorResponse(char *input, char *output)
+{
+  asynStatus status = asynSuccess;
+  static const char *trailer = "?";
+  static const char *header = "*";
+  
+  static const char *functionName = "p6kController::errorResponse";
+
+  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
+
+  char *pTrailer = strstr(input, trailer);
+
+  if (pTrailer != NULL) {
+    *pTrailer = '\0';
+    //Remove leading '*' character. Make sure it's there first.
+    //For error strings there may be some leading chars before the '*'
+    char *pHeader = strstr(input, header);
+    if (pHeader != NULL) {
+      pHeader++;
+      strncpy(output, pHeader, P6K_MAXBUF_-1);
+      return asynSuccess;
+    }
+  } 
+
+  //asynError is used to indicate we have not found an error
+  return asynError;
 }
 
 /**
@@ -365,7 +421,7 @@ asynStatus p6kController::trimResponse(char *input, char *output)
 
 void p6kController::report(FILE *fp, int level)
 {
-  int axis = 0;
+  int32_t axis = 0;
   p6kAxis *pAxis = NULL;
 
   fprintf(fp, "p6k motor driver %s, numAxes=%d, moving poll period=%f, idle poll period=%f\n", 
@@ -582,7 +638,7 @@ asynStatus p6kController::writeOctet(asynUser *pasynUser, const char *value,
   * \param[in] pasynUser asynUser structure that encodes the axis index number. */
 p6kAxis* p6kController::getAxis(asynUser *pasynUser)
 {
-  int axisNo = 0;
+  int32_t axisNo = 0;
     
   getAddress(pasynUser, &axisNo);
   return getAxis(axisNo);
@@ -643,8 +699,8 @@ asynStatus p6kController::poll()
   //Can't read back TLIM for one axis, only all axes at once.
   //So it's a 'controller' command.
   
-
-  /* Transfer system status */
+  /*
+  //Transfer system status
   snprintf(command, P6K_MAXBUF, "%s", P6K_CMD_TSS);
   stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
   if (stat) {
@@ -662,7 +718,7 @@ asynStatus p6kController::poll()
     stat = (setIntegerParam(P6K_C_TSS_CmdError_,    (stringVal[P6K_TSS_CMDERROR_]    == P6K_ON_)) == asynSuccess) && stat;
     stat = (setIntegerParam(P6K_C_TSS_MemError_,    (stringVal[P6K_TSS_MEMERROR_]    == P6K_ON_)) == asynSuccess) && stat;
   }
-
+  */
   callParamCallbacks();
 
   if (!stat) {
@@ -831,7 +887,7 @@ asynStatus p6kController::processDeferredMoves(void)
   asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
   //Build up combined move command for all axes involved in the deferred move.
-  for (int axis=0; axis<numAxes_; axis++) {
+  for (uint32_t axis=0; axis<numAxes_; axis++) {
     pAxis = getAxis(axis);
     if (pAxis != NULL) {
       if (pAxis->deferredMove_) {

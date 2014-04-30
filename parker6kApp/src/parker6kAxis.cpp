@@ -105,6 +105,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   nowTimeSecs_ = 0.0;
   lastTimeSecs_ = 0.0;
   printNextError_ = false;
+  commandError_ = false;
 
   /* Set an EPICS exit handler that will shut down polling before asyn kills the IP sockets */
   epicsAtExit(shutdownCallback, pC_);
@@ -121,6 +122,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   paramStatus = ((setStringParam(pC_->P6K_A_Command_RBV_, " ") == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_LS_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_LH_, 0) == asynSuccess) && paramStatus);
+  paramStatus = ((setStringParam(pC_->P6K_A_Error_, " ") == asynSuccess) && paramStatus);
   if (!paramStatus) {
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
 	      "%s Unable To Set Driver Parameters In Constructor. Axis:%d\n", 
@@ -229,7 +231,7 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
    
   }
 
-  setIntegerParam(pC_->motorStatusHasEncoder_, 1);
+  //  setIntegerParam(pC_->motorStatusHasEncoder_, 1);
 
   if (!stat) {
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
@@ -293,20 +295,19 @@ void p6kAxis::printAxisParams(void)
 asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity, double max_velocity, double acceleration)
 {
   asynStatus status = asynError;
+  char command[P6K_MAXBUF]  = {0};
+  char response[P6K_MAXBUF] = {0};
   static const char *functionName = "p6kAxis::move";
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
-  char command[P6K_MAXBUF]  = {0};
-  char response[P6K_MAXBUF] = {0};
-
   int32_t axisDef = 0;
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_AXSDEF_, &axisDef);
-  cout << functionName << " axisDef: " << endl;
+  cout << functionName << " axisDef: " << axisDef << endl;
 
   int32_t maxDigits = 0;
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_MaxDigits_, &maxDigits);
-  cout << functionName << " maxDigits: " << endl;
+  cout << functionName << " maxDigits: " << maxDigits << endl;
 
   //Read DRES and ERES for velocity and accel scaling
   int32_t dres = 0;
@@ -319,8 +320,11 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
   } else {
     scale = dres;
   }
+
+  cout << " scale factor: " << scale << endl;
   
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s DRES=%d, ERES=%d\n", functionName, dres, eres);
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s scale=%d\n", functionName, scale);
 
   if (relative > 1) {
     relative = 1;
@@ -342,15 +346,18 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
     if (max_velocity != 0) {
       printf("%s  acceleration: %f\n", functionName, acceleration);
       epicsFloat64 accel = acceleration / scale;
+      printf("%s  A: %f\n", functionName, accel);
       sprintf(command, "%dA%.*f", axisNo_, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
       
       //Set S curve parameters too
+      printf("%s  AA: %f\n", functionName, accel/2);
       sprintf(command, "%dAA%.*f", axisNo_, maxDigits, accel/2);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
 
+      
       sprintf(command, "%dAD%.*f", axisNo_, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
@@ -372,10 +379,19 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
   } else { /* deferred moves */
     deferredPosition_ = pos;
     deferredMove_ = 1;
-    //deferredRelative_ = relative;
+    //deferredRelative_ = relative; //This is already taken care of on the controller by the MA command
   }
         
   status = pC_->lowLevelWriteRead(command, response);
+
+  //Check the status of the GO command so we are notified of failed moves.
+  if (status != asynSuccess) {
+    setStringParam(pC_->P6K_A_Error_, response);
+    commandError_ = true;
+  } else {
+    setStringParam(pC_->P6K_A_Error_, " ");
+    commandError_ = false;
+  }
   
   return status;
 }
@@ -491,6 +507,8 @@ asynStatus p6kAxis::stop(double acceleration)
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
+  cout << " Stopping axis " << axisNo_ << endl;
+
   sprintf(command, "!%dS", axisNo_);
   status = pC_->lowLevelWriteRead(command, response);
   memset(command, 0, sizeof(command));
@@ -513,10 +531,12 @@ asynStatus p6kAxis::setClosedLoop(bool closedLoop)
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
  
   if (closedLoop) {
-    cout << "Turn drive on." << endl;
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
+	      "%s Drive enable on axis %d\n", functionName, axisNo_);
     sprintf(command, "%dDRIVE1",  axisNo_);
   } else {
-        cout << "Turn drive off." << endl;
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
+	      "%s Drive disable on axis %d\n", functionName, axisNo_);
     sprintf(command, "%dDRIVE0",  axisNo_);
   }
   status = pC_->lowLevelWriteRead(command, response);
@@ -594,19 +614,24 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     /* Transfer current position and encoder position.*/
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPC);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    cout << " TPC response: " << response << endl;
     if (stat) {
       nvals = sscanf(response, "%d"P6K_CMD_TPC"%d", &axisNum, &intVal);
-      setDoubleParam(pC_->motorPosition_, intVal);
+      if (nvals == 2) {
+	setDoubleParam(pC_->motorPosition_, intVal);
+      }
     }
     memset(command, 0, sizeof(command));
 
-    //printf("  Position: %d\n", intVal);
+    printf("  Position: %d\n", intVal);
 
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPE);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
     if (stat) {
       nvals = sscanf(response, "%d"P6K_CMD_TPE"%d", &axisNum, &intVal);
-      setDoubleParam(pC_->motorEncoderPosition_, intVal);
+      if (nvals == 2) {
+	setDoubleParam(pC_->motorEncoderPosition_, intVal);
+      }
     }
     memset(command, 0, sizeof(command));
 
@@ -618,10 +643,13 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     if (stat) {
       //printf("  Status response: %s\n", response);
       nvals = sscanf(response, "%d"P6K_CMD_TAS"%s", &axisNum, stringVal);
+      if (nvals != 2) {
+	stat = false;
+      } 
     }
     memset(command, 0, sizeof(command));
 
-    //printf("  Status string: %s\n", stringVal);
+    printf("  Status string: %s\n", stringVal);
 
     if (!stat) {
       if (printErrors) {
@@ -659,7 +687,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       stat = (setIntegerParam(pC_->motorStatusMoving_, 
 	     (stringVal[P6K_TAS_MOVING_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusDirection_, 
-	     (stringVal[P6K_TAS_DIRECTION_] == pC_->P6K_ON_)) == asynSuccess) && stat;
+	     (stringVal[P6K_TAS_DIRECTION_] == pC_->P6K_OFF_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusHighLimit_, 
 	     (stringVal[P6K_TAS_POSLIM_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusLowLimit_, 
@@ -671,7 +699,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       stat = (setIntegerParam(pC_->motorStatusPowerOn_, 
 	     (stringVal[P6K_TAS_DRIVE_] == pC_->P6K_OFF_)) == asynSuccess) && stat;
       
-      cout << "TAS DRIVE BIT: " << stringVal[P6K_TAS_DRIVE_] << endl;
+      //      cout << "TAS DRIVE BIT: " << stringVal[P6K_TAS_DRIVE_] << endl;
 
       if (driveType_ == P6K_SERVO_) {
 	stat = (setIntegerParam(pC_->motorStatusFollowingError_, 
@@ -681,11 +709,12 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
                (stringVal[P6K_TAS_STALL_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       }
       
-      int problem = 0;
+      uint32_t problem = 0;
       problem = 
 	(stringVal[P6K_TAS_DRIVEFAULT_] == pC_->P6K_ON_) |
 	(stringVal[P6K_TAS_TARGETTIMEOUT_] == pC_->P6K_ON_) |
-	(stringVal[P6K_TAS_POSERROR_] == pC_->P6K_ON_);
+	(stringVal[P6K_TAS_POSERROR_] == pC_->P6K_ON_) |
+	commandError_;
       stat = (setIntegerParam(pC_->motorStatusProblem_, (problem!=0)) == asynSuccess) && stat;
       
       if (!stat) {
