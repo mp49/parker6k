@@ -134,6 +134,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
 	      "%s: getAxisInitialStatus failed to return asynSuccess. Controller: %s, Axis: %d.\n", 
 	      functionName, pC_->portName, axisNo_);
+    return;
   }
 
   callParamCallbacks();
@@ -145,19 +146,95 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
 }
 
 /**
+ * Wrapper for common read int param operation at startup.
+ * @param cmd The command to send
+ * @param param The asyn param to set with the result
+ * @param val The result read back
+ * @return asynStatus
+ */
+asynStatus p6kAxis::readIntParam(const char *cmd, epicsUInt32 param, uint32_t *val)
+{
+  char command[P6K_MAXBUF] = {0};
+  char response[P6K_MAXBUF] = {0};
+  char scan[P6K_MAXBUF] = {0};
+  uint32_t nvals = 0;
+  uint32_t axisNum = 0;
+  asynStatus status = asynSuccess; 
+
+  static const char *functionName = "p6kAxis::readIntParam";
+  
+  snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, cmd);
+  status = pC_->lowLevelWriteRead(command, response);
+  if (status == asynSuccess) {
+    snprintf(scan,  P6K_MAXBUF, "%%d%s%%d", cmd);
+    nvals = sscanf(response, scan, &axisNum, val);    
+    if (nvals == 2) {
+      setIntegerParam(param, *val);
+      status = asynSuccess;
+    } else {
+      status = asynError;
+    }
+  }
+
+  if (status != asynSuccess) {
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+	      "%s ERROR: Failed to read %s at startup.\n", functionName, cmd);
+  }
+  
+  return status;
+
+} 
+
+
+/**
+ * Wrapper for common read double param operation at startup.
+ * @param cmd The command to send
+ * @param param The asyn param to set with the result
+ * @param val The result read back
+ * @return asynStatus
+ */
+asynStatus p6kAxis::readDoubleParam(const char *cmd, epicsUInt32 param, double *val)
+{
+  char command[P6K_MAXBUF] = {0};
+  char response[P6K_MAXBUF] = {0};
+  char scan[P6K_MAXBUF] = {0};
+  uint32_t nvals = 0;
+  uint32_t axisNum = 0;
+  asynStatus status = asynSuccess; 
+
+  static const char *functionName = "p6kAxis::readDoubleParam";
+  
+  snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, cmd);
+  status = pC_->lowLevelWriteRead(command, response);
+  if (status == asynSuccess) {
+    snprintf(scan,  P6K_MAXBUF, "%%d%s%%d", cmd);
+    nvals = sscanf(response, scan, &axisNum, val);    
+    if (nvals == 2) {
+      setIntegerParam(param, *val);
+      status = asynSuccess;
+    } else {
+      status = asynError;
+    }
+  }
+
+  if (status != asynSuccess) {
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+	      "%s ERROR: Failed to read %s at startup.\n", functionName, cmd);
+  }
+
+  return status;
+} 
+
+
+/**
  * Poll for initial axis status (soft limits, PID settings).
  * Set parameters needed for correct motor record behaviour.
  * @return asynStatus
  */
 asynStatus p6kAxis::getAxisInitialStatus(void)
 {
-  char command[P6K_MAXBUF] = {0};
-  char response[P6K_MAXBUF] = {0};
-  int32_t intVal = 0;
+  uint32_t intVal = 0;
   double doubleVal = 0.0;
-  int32_t nvals = 0;
-  int32_t softLimit = 0;
-  int32_t axisNum = 0;
   bool stat = true;
 
   static const char *functionName = "p6kAxis::getAxisInitialStatus";
@@ -166,81 +243,32 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
 
   if (axisNo_ != 0) {
 
-    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_AXSDEF);
-    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    stat = (readIntParam(P6K_CMD_AXSDEF, pC_->P6K_A_AXSDEF_, &intVal) == asynSuccess) && stat;
     if (stat) {
-      nvals = sscanf(response, "%d"P6K_CMD_AXSDEF"%d", &axisNum, &intVal);    
-      setIntegerParam(pC_->P6K_A_AXSDEF_, intVal);
       driveType_ = intVal;
     }
+    stat = (readIntParam(P6K_CMD_DRES, pC_->P6K_A_DRES_, &intVal) == asynSuccess) && stat;
+    stat = (readIntParam(P6K_CMD_ERES, pC_->P6K_A_ERES_, &intVal) == asynSuccess) && stat;
+    stat = (readIntParam(P6K_CMD_DRIVE, pC_->P6K_A_DRIVE_, &intVal) == asynSuccess) && stat;
+    stat = (readIntParam(P6K_CMD_ENCCNT, pC_->motorStatusHasEncoder_, &intVal) == asynSuccess) && stat;
+    stat = (readIntParam(P6K_CMD_LH, pC_->P6K_A_LH_, &intVal) == asynSuccess) && stat;
+    stat = (readIntParam(P6K_CMD_LS, pC_->P6K_A_LS_, &intVal) == asynSuccess) && stat;
+    stat = (readDoubleParam(P6K_CMD_LSPOS, pC_->motorHighLimit_, &doubleVal) == asynSuccess) && stat;
+    stat = (readDoubleParam(P6K_CMD_LSNEG, pC_->motorLowLimit_, &doubleVal) == asynSuccess) && stat;
 
-    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_DRES);
-    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-    if (stat) {
-      nvals = sscanf(response, "%d"P6K_CMD_DRES"%d", &axisNum, &intVal);    
-      setIntegerParam(pC_->P6K_A_DRES_, intVal);
-    }
-
-    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_ERES);
-    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-    if (stat) {
-      nvals = sscanf(response, "%d"P6K_CMD_ERES"%d", &axisNum, &intVal);
-      setIntegerParam(pC_->P6K_A_ERES_, intVal);
-    }
-
-    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_DRIVE);
-    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-    if (stat) {
-      nvals = sscanf(response, "%d"P6K_CMD_DRIVE"%d", &axisNum, &intVal);
-      setIntegerParam(pC_->P6K_A_DRIVE_, intVal);
-    }
-
-    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_ENCCNT);
-    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-    if (stat) {
-      nvals = sscanf(response, "%d"P6K_CMD_ENCCNT"%d", &axisNum, &intVal);
-      setIntegerParam(pC_->motorStatusHasEncoder_, intVal);
-    }
-
-    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_LH);
-    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-    if (stat) {
-      nvals = sscanf(response, "%d"P6K_CMD_LH"%d", &axisNum, &intVal);
-      setIntegerParam(pC_->P6K_A_LH_, intVal);
-    }
-    
-    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_LS);
-    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-    if (stat) {
-      nvals = sscanf(response, "%d"P6K_CMD_LS"%d", &axisNum, &softLimit);
-      setIntegerParam(pC_->P6K_A_LS_, intVal);
-    }
-
-    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_LSPOS);
-    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-    if (stat) {
-      nvals = sscanf(response, "%d"P6K_CMD_LSPOS"%lf", &axisNum, &doubleVal);
-      setDoubleParam(pC_->motorHighLimit_, doubleVal);
-    }
-    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_LSNEG);
-    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-    if (stat) {
-      nvals = sscanf(response, "%d"P6K_CMD_LSNEG"%lf", &axisNum, &doubleVal);
-      setDoubleParam(pC_->motorLowLimit_, doubleVal);
-    }
-   
   }
 
   //  setIntegerParam(pC_->motorStatusHasEncoder_, 1);
 
   if (!stat) {
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
-	      "%s ERROR: Could not read all axis parameters at startup.", functionName);
+	      "%s ERROR: Could not read all axis parameters at startup.\n", functionName);
     setIntegerParam(pC_->motorStatusCommsError_, 1);
+    return asynError;
   } else {
     printAxisParams();
+    return asynSuccess;
   }
-  
   
   return asynSuccess;
 }

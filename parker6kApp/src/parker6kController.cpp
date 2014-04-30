@@ -350,7 +350,6 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
  */
 asynStatus p6kController::errorResponse(char *input, char *output)
 {
-  asynStatus status = asynSuccess;
   static const char *trailer = "?";
   static const char *header = "*";
   
@@ -367,7 +366,9 @@ asynStatus p6kController::errorResponse(char *input, char *output)
     char *pHeader = strstr(input, header);
     if (pHeader != NULL) {
       pHeader++;
-      strncpy(output, pHeader, P6K_MAXBUF_-1);
+      if (output != NULL) {
+	strncpy(output, pHeader, P6K_MAXBUF_-1);
+      }
       return asynSuccess;
     }
   } 
@@ -387,6 +388,7 @@ asynStatus p6kController::trimResponse(char *input, char *output)
   asynStatus status = asynSuccess;
   static const char *trailer = "\r\r\n";
   static const char *smallTrailer = "\r\n";
+  static const char *header = "*";
   static const char *functionName = "p6kController::trimResponse";
 
   asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
@@ -406,14 +408,24 @@ asynStatus p6kController::trimResponse(char *input, char *output)
   }
 
   //Remove leading '*' character. Make sure it's there first.
-  if (status == asynSuccess) {
-    if (input[0] == '*') {
-      input++;
-    }
+  //Occasionally there may be some leading chars before the '*', eg a space.
+  char *pHeader = strstr(input, header);
+  if (pHeader != NULL) {
+    pHeader++;
     if (output != NULL) {
-      strncpy(output, input, P6K_MAXBUF_-1);
+      strncpy(output, pHeader, P6K_MAXBUF_-1);
     }
   }
+
+  //Remove leading '*' character. Make sure it's there first.
+  //if (status == asynSuccess) {
+  //  if (input[0] == '*') {
+  //    input++;
+  //  }
+  //  if (output != NULL) {
+  //    strncpy(output, input, P6K_MAXBUF_-1);
+  //  }
+  //}
 
   return status;
 }
@@ -699,7 +711,7 @@ asynStatus p6kController::poll()
   //Can't read back TLIM for one axis, only all axes at once.
   //So it's a 'controller' command.
   
-  /*
+  
   //Transfer system status
   snprintf(command, P6K_MAXBUF, "%s", P6K_CMD_TSS);
   stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
@@ -718,7 +730,7 @@ asynStatus p6kController::poll()
     stat = (setIntegerParam(P6K_C_TSS_CmdError_,    (stringVal[P6K_TSS_CMDERROR_]    == P6K_ON_)) == asynSuccess) && stat;
     stat = (setIntegerParam(P6K_C_TSS_MemError_,    (stringVal[P6K_TSS_MEMERROR_]    == P6K_ON_)) == asynSuccess) && stat;
   }
-  */
+  
   callParamCallbacks();
 
   if (!stat) {
@@ -887,7 +899,7 @@ asynStatus p6kController::processDeferredMoves(void)
   asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
   //Build up combined move command for all axes involved in the deferred move.
-  for (uint32_t axis=0; axis<numAxes_; axis++) {
+  for (int32_t axis=0; axis<numAxes_; axis++) {
     pAxis = getAxis(axis);
     if (pAxis != NULL) {
       if (pAxis->deferredMove_) {
