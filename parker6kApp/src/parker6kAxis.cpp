@@ -358,14 +358,14 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
     relative = 1;
   }
   cout << functionName << " relative: " << relative << endl;
-  sprintf(command, "%dMA%d", axisNo_, !relative);
+  snprintf(command, P6K_MAXBUF, "%dMA%d", axisNo_, !relative);
   status = pC_->lowLevelWriteRead(command, response);
   memset(command, 0, sizeof(command));
 
   if (max_velocity != 0) {
     cout << functionName << " max_velocity: " << max_velocity << endl;
     epicsFloat64 vel = max_velocity / scale;
-    sprintf(command, "%dV%.*f", axisNo_, maxDigits, vel);
+    snprintf(command, P6K_MAXBUF, "%dV%.*f", axisNo_, maxDigits, vel);
     status = pC_->lowLevelWriteRead(command, response);
     memset(command, 0, sizeof(command));
   }
@@ -375,22 +375,22 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
       printf("%s  acceleration: %f\n", functionName, acceleration);
       epicsFloat64 accel = acceleration / scale;
       printf("%s  A: %f\n", functionName, accel);
-      sprintf(command, "%dA%.*f", axisNo_, maxDigits, accel);
+      snprintf(command, P6K_MAXBUF, "%dA%.*f", axisNo_, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
       
       //Set S curve parameters too
       printf("%s  AA: %f\n", functionName, accel/2);
-      sprintf(command, "%dAA%.*f", axisNo_, maxDigits, accel/2);
+      snprintf(command, P6K_MAXBUF, "%dAA%.*f", axisNo_, maxDigits, accel/2);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
 
       
-      sprintf(command, "%dAD%.*f", axisNo_, maxDigits, accel);
+      snprintf(command, P6K_MAXBUF, "%dAD%.*f", axisNo_, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
 
-      sprintf(command, "%dADA%.*f", axisNo_, maxDigits, accel);
+      snprintf(command, P6K_MAXBUF, "%dADA%.*f", axisNo_, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
     }
@@ -400,10 +400,10 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
   //In case we cancel the deferred move.
   epicsUInt32 pos = static_cast<epicsUInt32>(position);
   if (pC_->movesDeferred_ == 0) {
-    sprintf(command, "%dD%d", axisNo_, pos);
+    snprintf(command, P6K_MAXBUF, "%dD%d", axisNo_, pos);
     status = pC_->lowLevelWriteRead(command, response);
     memset(command, 0, sizeof(command));
-    sprintf(command, "%dGO", axisNo_);
+    snprintf(command, P6K_MAXBUF, "%dGO", axisNo_);
   } else { /* deferred moves */
     deferredPosition_ = pos;
     deferredMove_ = 1;
@@ -465,7 +465,7 @@ asynStatus p6kAxis::moveVelocity(double min_velocity, double max_velocity, doubl
 asynStatus p6kAxis::setPosition(double position)
 {
   asynStatus asynStatus = asynError;
-  bool status = true;
+  bool stat = true;
   char command[P6K_MAXBUF]  = {0};
   char response[P6K_MAXBUF] = {0};
   static const char *functionName = "p6kAxis::setPosition";
@@ -479,39 +479,36 @@ asynStatus p6kAxis::setPosition(double position)
 	    "%s: Set axis %d on controller %s to position %d\n", 
 	    functionName, axisNo_, pC_->portName, pos);
 
-  sprintf(command, "!%dS", axisNo_);
-  if ( command[0] != 0 && status) {
-    status = (pC_->lowLevelWriteRead(command, response) == asynSuccess);
-  }
+  snprintf(command, P6K_MAXBUF, "!%dS", axisNo_);
+  stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
   memset(command, 0, sizeof(command));
 
-  sprintf(command, "%dPSET%d", axisNo_, pos);
-  if ( command[0] != 0 && status) {
-    status = (pC_->lowLevelWriteRead(command, response) == asynSuccess);
-  }
+  if (stat) {
+    snprintf(command, P6K_MAXBUF, "%dPSET%d", axisNo_, pos);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
   memset(command, 0, sizeof(command));
+  }
 
   /*Now set position on encoder axis.*/
-               
-  epicsFloat64 encRatio = 0.0;
-  pC_->getDoubleParam(pC_->motorEncoderRatio_,  &encRatio);
-  epicsInt32 encpos = (epicsInt32) floor((position*encRatio) + 0.5);
-
-  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
-	    "%s: Set encoder axis %d on controller %s to position %d, encRatio: %f\n", 
-	    functionName, axisNo_, pC_->portName, pos, encRatio);
-
-  sprintf(command, "%dPESET%d", axisNo_, encpos);
-  if ( command[0] != 0 && status) {
-    status = (pC_->lowLevelWriteRead(command, response) == asynSuccess);
+  if (stat) {             
+    epicsFloat64 encRatio = 0.0;
+    pC_->getDoubleParam(pC_->motorEncoderRatio_,  &encRatio);
+    epicsInt32 encpos = (epicsInt32) floor((position*encRatio) + 0.5);
+    
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
+	      "%s: Set encoder axis %d on controller %s to position %d, encRatio: %f\n", 
+	      functionName, axisNo_, pC_->portName, pos, encRatio);
+    
+    snprintf(command, P6K_MAXBUF, "%dPESET%d", axisNo_, encpos);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    memset(command, 0, sizeof(command));
   }
-  memset(command, 0, sizeof(command));
-   
+
   /*Now do a fast update, to get the new position from the controller.*/
   bool moving = true;
   getAxisStatus(&moving);
  
-  if (!status) {
+  if (!stat) {
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
 	      "%s: Failed to set position on axis %d on controller %s.\n", 
 	      functionName, axisNo_, pC_->portName);
@@ -537,9 +534,8 @@ asynStatus p6kAxis::stop(double acceleration)
 
   cout << " Stopping axis " << axisNo_ << endl;
 
-  sprintf(command, "!%dS", axisNo_);
+  snprintf(command, P6K_MAXBUF, "!%dS", axisNo_);
   status = pC_->lowLevelWriteRead(command, response);
-  memset(command, 0, sizeof(command));
 
   deferredMove_ = 0;
 

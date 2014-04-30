@@ -305,19 +305,17 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
 
   memset(response, 0, sizeof(response));
   
-  if (!commsError) {
-    status = pasynOctetSyncIO->writeRead(lowLevelPortUser_ ,
-					 command, strlen(command),
-					 temp, P6K_MAXBUF_,
-					 P6K_TIMEOUT_,
-					 &nwrite, &nread, &eomReason );
-    
-    if (status) {
-      asynPrint(lowLevelPortUser_, ASYN_TRACE_ERROR, "%s: Error from pasynOctetSyncIO->writeRead. command: %s\n", functionName, command);
-      setIntegerParam(P6K_C_CommsError_, P6K_ERROR_);
-    } else {
-      setIntegerParam(P6K_C_CommsError_, P6K_OK_);
-    }
+  status = pasynOctetSyncIO->writeRead(lowLevelPortUser_ ,
+				       command, strlen(command),
+				       temp, P6K_MAXBUF_,
+				       P6K_TIMEOUT_,
+				       &nwrite, &nread, &eomReason );
+  
+  if (status) {
+    asynPrint(lowLevelPortUser_, ASYN_TRACE_ERROR, "%s: Error from pasynOctetSyncIO->writeRead. command: %s\n", functionName, command);
+    setIntegerParam(P6K_C_CommsError_, P6K_ERROR_);
+  } else {
+    setIntegerParam(P6K_C_CommsError_, P6K_OK_);
   }
 
   //Search for an error response
@@ -710,7 +708,6 @@ asynStatus p6kController::poll()
   //See: https://trac.sns.gov/slowcontrols/ticket/125
   //Can't read back TLIM for one axis, only all axes at once.
   //So it's a 'controller' command.
-  
   
   //Transfer system status
   snprintf(command, P6K_MAXBUF, "%s", P6K_CMD_TSS);
