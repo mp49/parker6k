@@ -35,6 +35,7 @@ using std::dec;
 static const char *driverName = "parker6k";
 
 const epicsUInt32 p6kController::P6K_MAXBUF_ = P6K_MAXBUF;
+const epicsUInt32 p6kController::P6K_MAXAXES_ = 8;
 const epicsFloat64 p6kController::P6K_TIMEOUT_ = 5.0;
 const epicsUInt32 p6kController::P6K_ERROR_PRINT_TIME_ = 1; //seconds (this should be set larger when we finish debugging)
 const epicsUInt32 p6kController::P6K_FORCED_FAST_POLLS_ = 10;
@@ -99,11 +100,6 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
 
   pAxes_ = (p6kAxis **)(asynMotorController::pAxes_);
 
-  //Create dummy axis for asyn address 0. This is used for controller parameters.
-  //Do I need this?
-  //printf("%s: Create pAxisZero for controller parameters.\n", functionName);
-  //pAxisZero = new p6kAxis(this, 0);
-
   //Create controller-specific parameters
   printf("%s: Create controller parameters.\n", functionName);
   createParam(P6K_C_FirstParamString,       asynParamInt32, &P6K_C_FirstParam_);
@@ -111,6 +107,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_C_CommsErrorString,       asynParamInt32, &P6K_C_CommsError_);
   createParam(P6K_C_CommandString,          asynParamOctet, &P6K_C_Command_);
   createParam(P6K_C_CommandRBVString,       asynParamOctet, &P6K_C_Command_RBV_);
+  createParam(P6K_C_ErrorString,            asynParamOctet, &P6K_C_Error_);
   createParam(P6K_C_TSS_SystemReadyString,  asynParamInt32, &P6K_C_TSS_SystemReady_);
   createParam(P6K_C_TSS_ProgRunningString,  asynParamInt32, &P6K_C_TSS_ProgRunning_);
   createParam(P6K_C_TSS_ImmediateString,    asynParamInt32, &P6K_C_TSS_Immediate_);
@@ -131,6 +128,10 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_A_CommandString,          asynParamOctet, &P6K_A_Command_);
   createParam(P6K_A_CommandRBVString,       asynParamOctet, &P6K_A_Command_RBV_);
   createParam(P6K_A_ErrorString,            asynParamOctet, &P6K_A_Error_);
+
+  //Create dummy axis for asyn address 0. This is used for controller parameters.
+  printf("%s: Create pAxisZero for controller parameters.\n", functionName);
+  pAxisZero = new p6kAxis(this, 0);
   
   //Connect our Asyn user to the low level port that is a parameter to this constructor
   //NOTE:
@@ -171,6 +172,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
     paramStatus = ((setIntegerParam(P6K_C_GlobalStatus_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setStringParam(P6K_C_Command_, " ") == asynSuccess) && paramStatus);
     paramStatus = ((setStringParam(P6K_C_Command_RBV_, " ") == asynSuccess) && paramStatus);
+    paramStatus = ((setStringParam(P6K_C_Error_, " ") == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_SystemReady_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_ProgRunning_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_Immediate_, 0) == asynSuccess) && paramStatus);
@@ -548,6 +550,8 @@ asynStatus p6kController::writeInt32(asynUser *pasynUser, epicsInt32 value)
   p6kAxis *pAxis = NULL;
   static const char *functionName = "p6kController::writeInt32";
 
+  cout << " ********* p6kController::writeInt32 " << endl;
+
   asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
   pAxis = this->getAxis(pasynUser);
@@ -558,13 +562,14 @@ asynStatus p6kController::writeInt32(asynUser *pasynUser, epicsInt32 value)
   status = (pAxis->setIntegerParam(function, value) == asynSuccess) && status;
 
 
-  if (function == motorDeferMoves_) {
-    asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s: Setting deferred move mode on P6K %s to %d\n", functionName, portName, value);
-    if (value == 0 && this->movesDeferred_ != 0) {
-      status = (this->processDeferredMoves() == asynSuccess) && status;
-    }
-    this->movesDeferred_ = value;
-  }
+  //  if (function == motorDeferMoves_) {
+  //  cout << "**********Deferred Moves: " << value << endl;
+  //  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s: Setting deferred move mode on P6K %s to %d\n", functionName, portName, value);
+  //    if (value == 0 && this->movesDeferred_ != 0) {
+  //  status = (this->processDeferredMoves() == asynSuccess) && status;
+  //}
+  //this->movesDeferred_ = value;
+  //}
   
   //Call base class method. This will handle callCallbacks even if the function was handled here.
   status = (asynMotorController::writeInt32(pasynUser, value) == asynSuccess) && status;
@@ -885,40 +890,67 @@ asynStatus p6kController::poll()
   }*/
 
 
-asynStatus p6kController::processDeferredMoves(void)
+asynStatus p6kController::setDeferredMoves(bool deferMoves)
 {
   asynStatus status = asynSuccess;
+  bool stat = true;
   char command[P6K_MAXBUF_] = {0};
   char response[P6K_MAXBUF_] = {0};
+  uint32_t move[P6K_MAXAXES_+1] = {0};
   p6kAxis *pAxis = NULL;
-  static const char *functionName = "p6kController::processDeferredMoves";
+  static const char *functionName = "p6kController::setDeferredMoves";
+
+  cout << functionName << endl;
 
   asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
-  //Build up combined move command for all axes involved in the deferred move.
-  for (int32_t axis=0; axis<numAxes_; axis++) {
+  //If we are not ending deferred moves then return
+  if (deferMoves || !movesDeferred_) {
+    movesDeferred_ = true;
+    return asynSuccess;
+  }
+
+  //Set the distance to move for each axis
+  for (int32_t axis=0; axis<numAxes_; ++axis) {
     pAxis = getAxis(axis);
     if (pAxis != NULL) {
       if (pAxis->deferredMove_) {
-	//sprintf(command, "%s #%d%s%.2f", command, pAxis->axisNo_,
-	//	pAxis->deferredRelative_ ? "J^" : "J=",
-	//	pAxis->deferredPosition_);
+	cout << "axis: " << axis << endl;
+	cout << "position: " << pAxis->deferredPosition_ << endl;
+	snprintf(command, P6K_MAXBUF, "%dD%d", pAxis->axisNo_, pAxis->deferredPosition_);
+	cout << "command: " << command << endl;
+	stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
+	if (axis <= P6K_MAXAXES_) {
+	  move[axis] = 1;
+	}
+	memset(command, 0, sizeof(command));
       }
     }
   }
-  
-  //Execute the deferred move
-  if (lowLevelWriteRead(command, response) != asynSuccess) {
-    asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "%s ERROR Sending Deferred Move Command.\n", functionName);
-    setIntegerParam(P6K_C_CommsError_, P6K_ERROR_);
+
+  //If any commands failed, don't execute, cancle deferred move and return
+  if (!stat) {
+    asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+	      "%s ERROR Sending Deferred Move Positions.\n", functionName);
     status = asynError;
   } else {
-    setIntegerParam(P6K_C_CommsError_, P6K_OK_);
-    status = asynSuccess;
+  
+    //Execute the deferred move
+    snprintf(command, P6K_MAXBUF, "GO%d%d%d%d%d%d%d%d", move[1],move[2],move[3],move[4],move[5],move[6],move[7],move[8]);
+    cout << "command: " << command << endl;
+    if (lowLevelWriteRead(command, response) != asynSuccess) {
+      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "%s ERROR Sending Deferred Move Command.\n", functionName);
+      setStringParam(P6K_C_Error_, "ERROR: Deferred Move Failed");
+      status = asynError;
+    } else {
+      setStringParam(P6K_C_Error_, " ");
+      status = asynSuccess;
+    }
+    
   }
 
   //Clear deferred move flag for the axes involved.
-  for (int axis=0; axis<numAxes_; axis++) {
+  for (int32_t axis=0; axis<numAxes_; axis++) {
     pAxis = getAxis(axis);
     if (pAxis!=NULL) {
       if (pAxis->deferredMove_) {
@@ -926,6 +958,8 @@ asynStatus p6kController::processDeferredMoves(void)
       }
     }
   }
+
+  movesDeferred_ = false;
      
   return status;
 }

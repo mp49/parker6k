@@ -24,6 +24,7 @@
 #define P6K_C_CommsErrorString      "P6K_C_COMMSERROR"
 #define P6K_C_CommandString         "P6K_C_COMMAND"
 #define P6K_C_CommandRBVString      "P6K_C_COMMAND_RBV"
+#define P6K_C_ErrorString           "P6K_C_ERROR"
 #define P6K_C_TSS_SystemReadyString "P6K_C_TSS_SYSTEMREADY"
 #define P6K_C_TSS_ProgRunningString "P6K_C_TSS_PROGRUNNING"
 #define P6K_C_TSS_ImmediateString   "P6K_C_TSS_IMMEDIATE"
@@ -86,6 +87,7 @@ class p6kController : public asynMotorController {
   /* These are the methods that we override */
   asynStatus writeInt32(asynUser *pasynUser, epicsInt32 value);
   asynStatus writeFloat64(asynUser *pasynUser, epicsFloat64 value);
+  asynStatus setDeferredMoves(bool deferMoves);
   virtual asynStatus writeOctet(asynUser *pasynUser, const char *value, 
                                     size_t nChars, size_t *nActual);
   void report(FILE *fp, int level);
@@ -115,6 +117,7 @@ class p6kController : public asynMotorController {
   int P6K_C_Command_RBV_;
   int P6K_A_Command_RBV_;
   int P6K_A_Error_;
+  int P6K_C_Error_;
   int P6K_C_TSS_SystemReady_;
   int P6K_C_TSS_ProgRunning_;
   int P6K_C_TSS_Immediate_;
@@ -136,11 +139,12 @@ class p6kController : public asynMotorController {
   asynStatus errorResponse(char *input, char *output);
   asynStatus lowLevelPortConnect(const char *port, int addr, asynUser **ppasynUser, const char *inputEos, const char *outputEos);
 
-  asynStatus processDeferredMoves(void);
+  //asynStatus processDeferredMoves(void);
 
   //static class data members
 
   static const epicsUInt32 P6K_MAXBUF_;
+  static const epicsUInt32 P6K_MAXAXES_;
   static const epicsFloat64 P6K_TIMEOUT_;
   static const epicsUInt32 P6K_FORCED_FAST_POLLS_;
   static const epicsUInt32 P6K_OK_;

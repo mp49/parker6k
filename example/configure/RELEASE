@@ -29,6 +29,7 @@ MOTOR=		$(SUPPORT)/motor
 PARKER6K=       $(SUPPORT)/parker6k
 AUTOSAVE=       $(SUPPORT)/autosave
 DEVIOCSTATS=    $(SUPPORT)/devIocStats
+GENERICIO=	$(SUPPORT)/genericIO
 
 #BUSY=           $(SUPPORT)/busy
 #SSCAN=          $(SUPPORT)/sscan

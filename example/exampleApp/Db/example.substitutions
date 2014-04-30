@@ -3,5 +3,12 @@
 file basic_asyn_motor_sns.db
 {
 pattern {P, M, DESC, DTYP, DIR, VELO, VBAS, ACCL, BDST, BVEL, BACC, PORT, ADDR, MRES, PREC, EGU, DHLM, DLLM, HLSV, INIT, SREV, RRES, TWV, ERES, JAR, UEIP, VMAX, OFF, RDBD, FOFF, ADEL, NTM}
-        {BL99:, Mot:P6K1, "P6K1", asynMotor, 0, 1, 0, 1.0, 0, 0, 0, P6K, 1, 0.001, 3, mm, 50000, -50000, MINOR, "", 200, 0, 1.0, 0, 0, 0, 5, 0, 0, 0, 0.0, NO}
+        {BL99:, Mot:P6K1, "P6K1", asynMotor, 0, 0.5, 0, 1.0, 0, 0, 0, P6K, 1, 0.001, 3, mm, 50000, -50000, MINOR, "", 200, 0, 1.0, 0, 0, 0, 5, 0, 0, 0, 0.0, NO}
+        {BL99:, Mot:P6K2, "P6K2", asynMotor, 0, 0.5, 0, 1.0, 0, 0, 0, P6K, 2, 0.001, 3, mm, 50000, -50000, MINOR, "", 200, 0, 1.0, 0, 0, 0, 5, 0, 0, 0, 0.0, NO}
+}
+
+file bo.template
+{
+pattern {S, DTYP, OUT, ZNAM, ONAM, SCAN }
+        {BL99:Mot:Defer, asynInt32, "@asyn(P6K,0)MOTOR_DEFER_MOVES", "GO", "DEFER", Passive }
 }

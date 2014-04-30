@@ -52,7 +52,7 @@ class p6kAxis : public asynMotorAxis
   double lowLimit_;
   uint32_t limitsDisabled_;
   double stepSize_;
-  double deferredPosition_;
+  uint32_t deferredPosition_;
   uint32_t deferredMove_;
   uint32_t deferredRelative_;
   uint32_t scale_;
