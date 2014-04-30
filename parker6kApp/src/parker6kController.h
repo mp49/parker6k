@@ -139,8 +139,6 @@ class p6kController : public asynMotorController {
   asynStatus errorResponse(char *input, char *output);
   asynStatus lowLevelPortConnect(const char *port, int addr, asynUser **ppasynUser, const char *inputEos, const char *outputEos);
 
-  //asynStatus processDeferredMoves(void);
-
   //static class data members
 
   static const epicsUInt32 P6K_MAXBUF_;

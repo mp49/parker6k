@@ -560,16 +560,6 @@ asynStatus p6kController::writeInt32(asynUser *pasynUser, epicsInt32 value)
   } 
 
   status = (pAxis->setIntegerParam(function, value) == asynSuccess) && status;
-
-
-  //  if (function == motorDeferMoves_) {
-  //  cout << "**********Deferred Moves: " << value << endl;
-  //  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s: Setting deferred move mode on P6K %s to %d\n", functionName, portName, value);
-  //    if (value == 0 && this->movesDeferred_ != 0) {
-  //  status = (this->processDeferredMoves() == asynSuccess) && status;
-  //}
-  //this->movesDeferred_ = value;
-  //}
   
   //Call base class method. This will handle callCallbacks even if the function was handled here.
   status = (asynMotorController::writeInt32(pasynUser, value) == asynSuccess) && status;
