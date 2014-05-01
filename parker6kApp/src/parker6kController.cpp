@@ -138,6 +138,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   // The P6K will send back a command with a \r\r\n> \n>
   // The low level port EOS will remove the first >. 
   // We will need to deal with the rest in p6kController::lowLevelWriteRead
+  // Error responses are handled differently, and unfortunately rely on a asyn timeout.
   printf("%s: Connect to low level Asyn port.\n", functionName);
   //const char * ieos = P6K_ASYN_IEOS_;
   //const char * oeos = P6K_ASYN_OEOS_;
@@ -416,16 +417,6 @@ asynStatus p6kController::trimResponse(char *input, char *output)
       strncpy(output, pHeader, P6K_MAXBUF_-1);
     }
   }
-
-  //Remove leading '*' character. Make sure it's there first.
-  //if (status == asynSuccess) {
-  //  if (input[0] == '*') {
-  //    input++;
-  //  }
-  //  if (output != NULL) {
-  //    strncpy(output, input, P6K_MAXBUF_-1);
-  //  }
-  //}
 
   return status;
 }
@@ -1045,87 +1036,6 @@ asynStatus p6kCreateAxes(const char *p6kName,
 }
 
 
-/**
- * Disable the check in the axis poller that reads ix24 to check if hardware limits
- * are disabled. By default this is enabled for safety reasons. It sets the motor
- * record PROBLEM bit in MSTA, which results in the record going into MAJOR/STATE alarm.
- * @param controller Asyn port name for the controller (const char *)
- * @param axis Axis number to disable the check for.
- * @param allAxes Set to 0 if only dealing with one axis. 
- *                Set to 1 to do all axes (in which case the axis parameter is ignored).
- */
-/*asynStatus p6kDisableLimitsCheck(const char *controller, int axis, int allAxes)
-{
-  p6kController *pC;
-  static const char *functionName = "p6kDisableLimitsCheck";
-
-  pC = (p6kController*) findAsynPortDriver(controller);
-  if (!pC) {
-    printf("%s:%s: Error port %s not found\n",
-           driverName, functionName, controller);
-    return asynError;
-  }
-
-  if (allAxes == 1) {
-    return pC->p6kDisableLimitsCheck();
-  } else if (allAxes == 0) {
-    return pC->p6kDisableLimitsCheck(axis);
-  }
-
-  return asynError;
-  }*/
-
-
-/**
- * Set the P6K axis scale factor to increase resolution in the motor record.
- * Default value is 1.
- * @param controller The Asyn port name for the P6K controller.
- * @param axis Axis number to set the P6K axis scale factor.
- * @param scale Scale factor to set
- */
-/*asynStatus p6kSetAxisScale(const char *controller, int axis, int scale)
-{
-  p6kController *pC;
-  static const char *functionName = "p6kSetAxisScale";
-
-  pC = (p6kController*) findAsynPortDriver(controller);
-  if (!pC) {
-    printf("%s:%s: Error port %s not found\n",
-           driverName, functionName, controller);
-    return asynError;
-  }
-    
-  return pC->p6kSetAxisScale(axis, scale);
-  }*/
-
-  
-/**
- * If we have an open loop axis that has an encoder coming back on a different channel
- * then the encoder readback axis number can be set here. This ensures that the encoder
- * will be used for the position readback. It will also ensure that the encoder axis
- * is set correctly when performing a set position on the open loop axis.
- *
- * To use this function, the axis number used for the encoder must have been configured
- * already using p6kCreateAxis.
- *
- * @param controller The Asyn port name for the P6K controller.
- * @param axis Axis number to set the P6K axis scale factor.
- * @param encoder_axis The axis number that the encoder is fed into.  
- */
- /*asynStatus p6kSetOpenLoopEncoderAxis(const char *controller, int axis, int encoder_axis)
-{
-  p6kController *pC;
-  static const char *functionName = "p6kSetOpenLoopEncoderAxis";
-
-  pC = (p6kController*) findAsynPortDriver(controller);
-  if (!pC) {
-    printf("%s:%s: Error port %s not found\n",
-           driverName, functionName, controller);
-    return asynError;
-  }
-    
-  return pC->p6kSetOpenLoopEncoderAxis(axis, encoder_axis);
-  }*/
 
 /* Code for iocsh registration */
 
