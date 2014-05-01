@@ -466,53 +466,12 @@ asynStatus p6kController::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
     return asynError;
   }
 
-  cout << "writeFloat64 value: " << value << endl;
-
   /* Set the parameter and readback in the parameter library. */
   status = (pAxis->setDoubleParam(function, value) == asynSuccess) && status;
 
-  if (function == motorLowLimit_) {
-
-      epicsInt32 limit = static_cast<epicsInt32>(floor(value + 0.5));
-
-        /* ignore for now, but I think I will need to do:
-
-      sprintf(command, "%d%s1", pAxis->axisNo_, P6K_CMD_LS_);
-      if ( command[0] != 0 && status) {
-         status = (lowLevelWriteRead(command, response) == asynSuccess) && status;
-      }
-      memset(command, 0, sizeof(command));
-      
-      sprintf(command, "%d%s%d", pAxis->axisNo_, P6K_CMD_LSNEG_, limit);
-      
-     */
-    asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW,
-    	      "%s: Setting low limit on controller %s, axis %d to %d\n",
-    	      functionName, portName, pAxis->axisNo_, limit);
-  }
-  else if (function == motorHighLimit_) {
-
-      epicsInt32 limit = static_cast<epicsInt32>(floor(value + 0.5));
-
-      /* ignore for now, but I think I will need to do:
-
-      sprintf(command, "%d%s1", pAxis->axisNo_, P6K_CMD_LS_);
-      if ( command[0] != 0 && status) {
-         status = (lowLevelWriteRead(command, response) == asynSuccess) && status;
-      }
-      memset(command, 0, sizeof(command));
-      
-      sprintf(command, "%d%s%d", pAxis->axisNo_, P6K_CMD_LSPOS_, limit);
-      
-     */
-    asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW,
-    	      "%s: Setting high limit on controller %s, axis %d to %d\n",
-    	      functionName, portName, pAxis->axisNo_, limit);
-  } 
-
-  if (command[0] != 0 && status) {
-    status = (lowLevelWriteRead(command, response) == asynSuccess) && status;
-  }
+  //if (command[0] != 0 && status) {
+  //  status = (lowLevelWriteRead(command, response) == asynSuccess) && status;
+  //}
 
   //Call base class method. This will handle callCallbacks even if the function was handled here.
   status = (asynMotorController::writeFloat64(pasynUser, value) == asynSuccess) && status;
@@ -542,8 +501,6 @@ asynStatus p6kController::writeInt32(asynUser *pasynUser, epicsInt32 value)
   bool status = true;
   p6kAxis *pAxis = NULL;
   static const char *functionName = "p6kController::writeInt32";
-
-  cout << " ********* p6kController::writeInt32 " << endl;
 
   asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 

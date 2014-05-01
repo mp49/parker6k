@@ -130,11 +130,13 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   }
   
   //Do an initial poll to get some values from the P6K
-  if (getAxisInitialStatus() != asynSuccess) {
-    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
-	      "%s: getAxisInitialStatus failed to return asynSuccess. Controller: %s, Axis: %d.\n", 
-	      functionName, pC_->portName, axisNo_);
-    return;
+  if (axisNo_ > 0) {
+    if (getAxisInitialStatus() != asynSuccess) {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+		"%s: getAxisInitialStatus failed to return asynSuccess. Controller: %s, Axis: %d.\n", 
+		functionName, pC_->portName, axisNo_);
+      return;
+    }
   }
 
   callParamCallbacks();
@@ -207,10 +209,10 @@ asynStatus p6kAxis::readDoubleParam(const char *cmd, epicsUInt32 param, double *
   snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, cmd);
   status = pC_->lowLevelWriteRead(command, response);
   if (status == asynSuccess) {
-    snprintf(scan,  P6K_MAXBUF, "%%d%s%%d", cmd);
-    nvals = sscanf(response, scan, &axisNum, val);    
+    snprintf(scan,  P6K_MAXBUF, "%%d%s%%lf", cmd);
+    nvals = sscanf(response, scan, &axisNum, val);
     if (nvals == 2) {
-      setIntegerParam(param, *val);
+      setDoubleParam(param, *val);
       status = asynSuccess;
     } else {
       status = asynError;
@@ -554,6 +556,72 @@ asynStatus p6kAxis::setEncoderRatio(double ratio)
   return status;
 }
 
+asynStatus p6kAxis::setHighLimit(double highLimit)
+{
+  asynStatus status = asynSuccess;
+  bool stat = true;
+  char command[P6K_MAXBUF]  = {0};
+  char response[P6K_MAXBUF] = {0};
+  static const char *functionName = "p6kAxis::setHighLimit";
+
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
+
+  epicsInt32 limit = static_cast<epicsInt32>(floor(highLimit + 0.5));
+
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW,
+	    "%s: Setting high limit on controller %s, axis %d to %d\n",
+	    functionName, pC_->portName, axisNo_, limit);
+  
+  snprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
+  stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+  memset(command, 0, sizeof(command));
+  
+  snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSPOS, limit);
+  stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+  
+  if (!stat) {
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+	      "%s: ERROR: Failed to set high limit on controller %s, axis %d\n",
+	      functionName, pC_->portName, axisNo_);
+    status = asynError;
+  }
+  
+  return status;
+}
+
+asynStatus p6kAxis::setLowLimit(double lowLimit)
+{
+  asynStatus status = asynSuccess;
+  bool stat = true;
+  char command[P6K_MAXBUF]  = {0};
+  char response[P6K_MAXBUF] = {0};
+  static const char *functionName = "p6kAxis::setLowLimit";
+
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
+
+  epicsInt32 limit = static_cast<epicsInt32>(floor(lowLimit + 0.5));
+
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW,
+	    "%s: Setting high limit on controller %s, axis %d to %d\n",
+	    functionName, pC_->portName, axisNo_, limit);
+  
+  snprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
+  stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+  memset(command, 0, sizeof(command));
+  
+  snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSNEG, limit);
+  stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+  
+  if (!stat) {
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+	      "%s: ERROR: Failed to set low limit on controller %s, axis %d\n",
+	      functionName, pC_->portName, axisNo_);
+    status = asynError;
+  }
+  
+  return status;
+}
+
 /**
  * See asynMotorAxis::setClosedLoop
  */
@@ -718,9 +786,9 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       stat = (setIntegerParam(pC_->motorStatusDirection_, 
 	     (stringVal[P6K_TAS_DIRECTION_] == pC_->P6K_OFF_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusHighLimit_, 
-	     (stringVal[P6K_TAS_POSLIM_] == pC_->P6K_ON_)) == asynSuccess) && stat;
+	    ((stringVal[P6K_TAS_POSLIM_] || stringVal[P6K_TAS_POSLIMSOFT_]) == pC_->P6K_ON_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusLowLimit_, 
-	     (stringVal[P6K_TAS_NEGLIM_] == pC_->P6K_ON_)) == asynSuccess) && stat;
+	    ((stringVal[P6K_TAS_NEGLIM_] || stringVal[P6K_TAS_NEGLIMSOFT_]) == pC_->P6K_ON_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusHomed_, 
 	     (stringVal[P6K_TAS_HOMED_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusHomed_, 
