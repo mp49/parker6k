@@ -30,6 +30,8 @@ p6kCreateController("P6K","6K",0,2,500,1000)
 
 #asynSetTraceMask("P6K",0,0xFF)
 #asynSetTraceIOMask("P6K",0,0xFF)
+#asynSetTraceMask("P6K",1,0xFF)
+#asynSetTraceIOMask("P6K",1,0xFF)
 
 p6kCreateAxis("P6K",1)
 p6kCreateAxis("P6K",2)

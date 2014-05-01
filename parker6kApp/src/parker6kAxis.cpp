@@ -300,6 +300,8 @@ void p6kAxis::printAxisParams(void)
   printf("  "P6K_CMD_DRES": %d\n", intVal);
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_ERES_, &intVal);
   printf("  "P6K_CMD_ERES": %d\n", intVal);
+  pC_->getIntegerParam(axisNo_, pC_->motorStatusHasEncoder_, &intVal);
+  printf("  "P6K_CMD_ENCCNT": %d\n", intVal);
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_LS_, &intVal);
   printf("  "P6K_CMD_LS": %d\n", intVal);
   if (static_cast<epicsUInt32>(intVal) != P6K_LIM_ENABLE_) {
@@ -474,7 +476,7 @@ asynStatus p6kAxis::setPosition(double position)
 
   /*Set position on motor axis.*/
   epicsInt32 pos = static_cast<epicsInt32>(floor(position + 0.5));
-    
+
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
 	    "%s: Set axis %d on controller %s to position %d\n", 
 	    functionName, axisNo_, pC_->portName, pos);
@@ -492,9 +494,10 @@ asynStatus p6kAxis::setPosition(double position)
   /*Now set position on encoder axis.*/
   if (stat) {             
     epicsFloat64 encRatio = 0.0;
-    pC_->getDoubleParam(pC_->motorEncoderRatio_,  &encRatio);
+    pC_->getDoubleParam(axisNo_, pC_->motorEncoderRatio_, &encRatio);
+
     epicsInt32 encpos = (epicsInt32) floor((position*encRatio) + 0.5);
-    
+
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
 	      "%s: Set encoder axis %d on controller %s to position %d, encRatio: %f\n", 
 	      functionName, axisNo_, pC_->portName, pos, encRatio);
@@ -532,13 +535,22 @@ asynStatus p6kAxis::stop(double acceleration)
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
-  cout << " Stopping axis " << axisNo_ << endl;
-
   snprintf(command, P6K_MAXBUF, "!%dS", axisNo_);
   status = pC_->lowLevelWriteRead(command, response);
 
   deferredMove_ = 0;
 
+  return status;
+}
+
+asynStatus p6kAxis::setEncoderRatio(double ratio)
+{ 
+  asynStatus status = asynSuccess;
+  static const char *functionName = "p6kAxis::setEncoderRatio";
+
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
+
+  status = setDoubleParam(pC_->motorEncoderRatio_, ratio);
   return status;
 }
 
@@ -638,7 +650,6 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     /* Transfer current position and encoder position.*/
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPC);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-    cout << " TPC response: " << response << endl;
     if (stat) {
       nvals = sscanf(response, "%d"P6K_CMD_TPC"%d", &axisNum, &intVal);
       if (nvals == 2) {
@@ -646,8 +657,6 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       }
     }
     memset(command, 0, sizeof(command));
-
-    printf("  Position: %d\n", intVal);
 
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPE);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
@@ -658,8 +667,6 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       }
     }
     memset(command, 0, sizeof(command));
-
-    //printf("  Enc Position: %d\n", intVal);
 
     /* Transfer axis status */
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TAS);
@@ -672,8 +679,6 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       } 
     }
     memset(command, 0, sizeof(command));
-
-    printf("  Status string: %s\n", stringVal);
 
     if (!stat) {
       if (printErrors) {

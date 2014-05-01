@@ -32,6 +32,7 @@ class p6kAxis : public asynMotorAxis
   asynStatus poll(bool *moving);
   asynStatus setPosition(double position);
   asynStatus setClosedLoop(bool closedLoop);
+  asynStatus setEncoderRatio(double ratio);
   
   private:
   p6kController *pC_;

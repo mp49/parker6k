@@ -466,6 +466,8 @@ asynStatus p6kController::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
     return asynError;
   }
 
+  cout << "writeFloat64 value: " << value << endl;
+
   /* Set the parameter and readback in the parameter library. */
   status = (pAxis->setDoubleParam(function, value) == asynSuccess) && status;
 
