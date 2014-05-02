@@ -1,0 +1,26 @@
+#######################################################
+#
+# Axis template for P6K model 3 motor driver.
+# 
+# Macros:
+# M - base PV name (should match the motor record)
+# PORT - asyn motor driver port
+# ADDR - asyn address (ie. axis number)
+# TIMEOUT - asyn timeout (eg 1)
+#
+# Matt Pearson
+# May 2014
+#
+#######################################################
+
+record(ao, "$(M):DelayTime")
+{
+   field(PINI, "YES")
+   field(EGU, "Seconds")
+   field(DTYP, "asynFloat64")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_DELAYTIME")
+   field(VAL,  "0")
+   info(autosaveFields, "VAL")
+}
+
+

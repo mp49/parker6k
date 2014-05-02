@@ -128,6 +128,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_A_CommandString,          asynParamOctet, &P6K_A_Command_);
   createParam(P6K_A_CommandRBVString,       asynParamOctet, &P6K_A_Command_RBV_);
   createParam(P6K_A_ErrorString,            asynParamOctet, &P6K_A_Error_);
+  createParam(P6K_A_DelayTimeString,        asynParamFloat64, &P6K_A_DelayTime_);
 
   //Create dummy axis for asyn address 0. This is used for controller parameters.
   printf("%s: Create pAxisZero for controller parameters.\n", functionName);
@@ -469,6 +470,10 @@ asynStatus p6kController::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
   /* Set the parameter and readback in the parameter library. */
   status = (pAxis->setDoubleParam(function, value) == asynSuccess) && status;
 
+  if (function == P6K_A_DelayTime_) {
+    cout << "Setting delay time to " << value << endl;
+  }
+
   //if (command[0] != 0 && status) {
   //  status = (lowLevelWriteRead(command, response) == asynSuccess) && status;
   //}
@@ -510,7 +515,7 @@ asynStatus p6kController::writeInt32(asynUser *pasynUser, epicsInt32 value)
   } 
 
   status = (pAxis->setIntegerParam(function, value) == asynSuccess) && status;
-  
+
   //Call base class method. This will handle callCallbacks even if the function was handled here.
   status = (asynMotorController::writeInt32(pasynUser, value) == asynSuccess) && status;
   

@@ -10,7 +10,7 @@ include $(TOP)/configure/CONFIG
 #----------------------------------------------------
 # Create and install (or just install)
 # databases, templates, substitutions like this
-#DB += parker6k.template
+DB += p6k_axis.template
 
 #----------------------------------------------------
 # If <anyname>.db template is not named <anyname>*.template add

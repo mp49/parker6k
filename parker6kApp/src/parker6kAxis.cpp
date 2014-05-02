@@ -104,6 +104,9 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   encoder_axis_ = 0;
   nowTimeSecs_ = 0.0;
   lastTimeSecs_ = 0.0;
+  doneTimeSecs_ = 0.0;
+  movingLastPoll_ = false;
+  delayDoneMove_ = false;
   printNextError_ = false;
   commandError_ = false;
 
@@ -123,6 +126,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   paramStatus = ((setIntegerParam(pC_->P6K_A_LS_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_LH_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setStringParam(pC_->P6K_A_Error_, " ") == asynSuccess) && paramStatus);
+  paramStatus = ((setDoubleParam(pC_->P6K_A_DelayTime_, 0.0) == asynSuccess) && paramStatus);
   if (!paramStatus) {
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
 	      "%s Unable To Set Driver Parameters In Constructor. Axis:%d\n", 
@@ -138,7 +142,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
       return;
     }
   }
-
+ 
   callParamCallbacks();
 
   /* Wake up the poller task which will make it do a poll, 
@@ -693,7 +697,8 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     int32_t intVal = 0;
     char stringVal[P6K_MAXBUF] = {0};
     bool doneMoving = false;
-
+    bool controllerDoneMoving = false;
+    
     static const char *functionName = "p6kAxis::getAxisStatus";
     
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
@@ -726,6 +731,8 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     }
     memset(command, 0, sizeof(command));
 
+    //cout << "  TPC: " << intVal << endl;
+
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPE);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
     if (stat) {
@@ -735,6 +742,8 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       }
     }
     memset(command, 0, sizeof(command));
+
+    //cout << "  TPE: " << intVal << endl;
 
     /* Transfer axis status */
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TAS);
@@ -769,6 +778,29 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
 	  doneMoving = targetZone && !(stringVal[P6K_TAS_TARGETTIMEOUT_] == pC_->P6K_ON_);
 	}
       }
+
+      controllerDoneMoving = doneMoving;
+
+      //Optionally delay the done moving callback at the end of a move
+      double delayTime = 0.0;
+      pC_->getDoubleParam(axisNo_, pC_->P6K_A_DelayTime_, &delayTime);
+      if (delayTime > 0) {
+	if (doneMoving) {
+	  if (movingLastPoll_) {
+	    delayDoneMove_ = true;
+	    doneTimeSecs_ = nowTimeSecs_;
+	  }
+	  if (delayDoneMove_) {
+	    if ((nowTimeSecs_ - doneTimeSecs_) > delayTime) {
+	      delayDoneMove_ = false;
+	    }
+	  }
+	}
+      }
+      if (delayDoneMove_) {
+	doneMoving = false;
+      }
+      movingLastPoll_ = !controllerDoneMoving;
       
       if (!doneMoving) {
 	*moving = true;
@@ -777,7 +809,6 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       }
 
       //TODO: Also read TER status here, as there is more info this status message
-      
       
       stat = (setIntegerParam(pC_->motorStatusDone_, 
 	      doneMoving) == asynSuccess) && stat;
@@ -831,4 +862,6 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     //This currently isn't checked by base class polling thread.
     return asynSuccess;
 }
+
+
 

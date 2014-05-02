@@ -7,6 +7,12 @@ pattern {P, M, DESC, DTYP, DIR, VELO, VBAS, ACCL, BDST, BVEL, BACC, PORT, ADDR, 
         {BL99:, Mot:P6K2, "P6K2", asynMotor, 0, 0.5, 0, 1.0, 0, 0, 0, P6K, 2, 0.001, 3, mm, 50000, -50000, MINOR, "", 200, 0, 1.0, 0, 0, 0, 5, 0, 0, 0, 0.0, NO}
 }
 
+file p6k_axis.template
+{
+pattern {M, PORT, ADDR, TIMEOUT}
+        {BL99:Mot:P6K1, P6K, 1, 1} 	  
+}
+
 file bo.template
 {
 pattern {S, DTYP, OUT, ZNAM, ONAM, SCAN }

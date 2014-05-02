@@ -42,6 +42,7 @@
 #define P6K_A_LSString         "P6K_A_LS"
 #define P6K_A_LHString         "P6K_A_LH"
 #define P6K_A_ErrorString      "P6K_A_ERROR"
+#define P6K_A_DelayTimeString  "P6K_A_DELAYTIME"
 
 #define P6K_MAXBUF 1024
 
@@ -118,6 +119,7 @@ class p6kController : public asynMotorController {
   int P6K_A_Command_RBV_;
   int P6K_A_Error_;
   int P6K_C_Error_;
+  int P6K_A_DelayTime_;
   int P6K_C_TSS_SystemReady_;
   int P6K_C_TSS_ProgRunning_;
   int P6K_C_TSS_Immediate_;

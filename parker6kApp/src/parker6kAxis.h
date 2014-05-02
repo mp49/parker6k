@@ -22,7 +22,7 @@ class p6kController;
 class p6kAxis : public asynMotorAxis
 {
   public:
-  /* These are the methods we override from the base class */
+  //These are the methods we override from the base class
   p6kAxis(p6kController *pController, int axisNo);
   virtual ~p6kAxis();
   asynStatus move(double position, int relative, double min_velocity, double max_velocity, double acceleration);
@@ -36,9 +36,15 @@ class p6kAxis : public asynMotorAxis
   asynStatus setHighLimit(double highLimit);
   asynStatus setLowLimit(double lowLimit);
   
+  
   private:
   p6kController *pC_;
+
+  bool movingLastPoll_;
+  bool delayDoneMove_;
+  epicsFloat64 doneTimeSecs_;
   
+
   asynStatus getAxisStatus(bool *moving);
   asynStatus getAxisInitialStatus(void);
   asynStatus readIntParam(const char *cmd, epicsUInt32 param, uint32_t *val);
