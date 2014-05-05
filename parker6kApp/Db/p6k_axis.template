@@ -24,3 +24,23 @@ record(ao, "$(M):DelayTime")
 }
 
 
+# These are useful if you need to set the software limits 
+# under the feet of the motor record.
+#record(ao, "$(M):HighLimit")
+#{
+#   field(PINI, "YES")
+#   field(DTYP, "asynFloat64")
+#   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))MOTOR_HIGH_LIMIT")
+#   field(VAL,  "0")
+#   info(autosaveFields, "VAL")
+#}
+
+#record(ao, "$(M):LowLimit")
+#{
+#   field(PINI, "YES")
+#   field(DTYP, "asynFloat64")
+#   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))MOTOR_LOW_LIMIT")
+#   field(VAL,  "0")
+#   info(autosaveFields, "VAL")
+#}
+

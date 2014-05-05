@@ -718,7 +718,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       printErrors = 1;
     }
 
-    //printf("Axis: %d\n", axisNo_);
+    printf("Axis: %d\n", axisNo_);
 
     /* Transfer current position and encoder position.*/
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPC);
@@ -749,8 +749,9 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TAS);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
     if (stat) {
-      //printf("  Status response: %s\n", response);
+      //      printf("  Status response: %s\n", response);
       nvals = sscanf(response, "%d"P6K_CMD_TAS"%s", &axisNum, stringVal);
+      //printf("  Parsed response: %s\n", stringVal);
       if (nvals != 2) {
 	stat = false;
       } 
@@ -815,18 +816,20 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       stat = (setIntegerParam(pC_->motorStatusMoving_, 
 	     (stringVal[P6K_TAS_MOVING_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusDirection_, 
-	     (stringVal[P6K_TAS_DIRECTION_] == pC_->P6K_OFF_)) == asynSuccess) && stat;
+             (stringVal[P6K_TAS_DIRECTION_] == pC_->P6K_OFF_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusHighLimit_, 
-	    ((stringVal[P6K_TAS_POSLIM_] || stringVal[P6K_TAS_POSLIMSOFT_]) == pC_->P6K_ON_)) == asynSuccess) && stat;
+	    ((stringVal[P6K_TAS_POSLIM_] == pC_->P6K_ON_) || 
+	     (stringVal[P6K_TAS_POSLIMSOFT_] == pC_->P6K_ON_))) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusLowLimit_, 
-	    ((stringVal[P6K_TAS_NEGLIM_] || stringVal[P6K_TAS_NEGLIMSOFT_]) == pC_->P6K_ON_)) == asynSuccess) && stat;
+	    ((stringVal[P6K_TAS_NEGLIM_] == pC_->P6K_ON_) || 
+             (stringVal[P6K_TAS_NEGLIMSOFT_] == pC_->P6K_ON_))) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusHomed_, 
 	     (stringVal[P6K_TAS_HOMED_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusHomed_, 
 	     (stringVal[P6K_TAS_HOMED_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusPowerOn_, 
 	     (stringVal[P6K_TAS_DRIVE_] == pC_->P6K_OFF_)) == asynSuccess) && stat;
-      
+ 
       //      cout << "TAS DRIVE BIT: " << stringVal[P6K_TAS_DRIVE_] << endl;
 
       if (driveType_ == P6K_SERVO_) {
