@@ -13,6 +13,10 @@
 #
 #######################################################
 
+# ///
+# /// Time to delay the end of move flag. This has a resolution
+# /// depending on the driver polling rate.
+# ///
 record(ao, "$(M):DelayTime")
 {
    field(PINI, "YES")
@@ -23,6 +27,17 @@ record(ao, "$(M):DelayTime")
    info(autosaveFields, "VAL")
 }
 
+# ///
+# /// Axis error message (from controller)
+# ///
+record(waveform, "$(M):ErrorMessage")
+{
+    field(DTYP, "asynOctetRead")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_ERROR")
+    field(FTVL, "CHAR")
+    field(NELM, "256")
+    field(SCAN, "I/O Intr")
+}
 
 # These are useful if you need to set the software limits 
 # under the feet of the motor record.
