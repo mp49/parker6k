@@ -127,6 +127,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   paramStatus = ((setIntegerParam(pC_->P6K_A_LH_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setStringParam(pC_->P6K_A_Error_, " ") == asynSuccess) && paramStatus);
   paramStatus = ((setDoubleParam(pC_->P6K_A_DelayTime_, 0.0) == asynSuccess) && paramStatus);
+  paramStatus = ((setIntegerParam(pC_->P6K_A_AutoDriveEnable_, 0) == asynSuccess) && paramStatus);
   if (!paramStatus) {
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
 	      "%s Unable To Set Driver Parameters In Constructor. Axis:%d\n", 
@@ -361,6 +362,20 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
   
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s DRES=%d, ERES=%d\n", functionName, dres, eres);
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s scale=%d\n", functionName, scale);
+
+  int32_t auto_drive_enable = 0;
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_AutoDriveEnable_, &auto_drive_enable);
+  cout << "auto_drive_enable: " << auto_drive_enable << endl;
+  if (auto_drive_enable == 1) {
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
+	      "%s Auto drive enable\n", functionName);
+    if (setClosedLoop(true) != asynSuccess) {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+		"%s ERROR: Failed to enable axis \n", functionName, axisNo_);
+      setStringParam(pC_->P6K_A_Error_, "ERROR: Failed to enable drive");
+      return asynError;
+    }
+  }
 
   if (relative > 1) {
     relative = 1;
@@ -628,6 +643,9 @@ asynStatus p6kAxis::setLowLimit(double lowLimit)
 
 /**
  * See asynMotorAxis::setClosedLoop
+ * This function is used to enable and disable the drive before
+ * and after a move (if that's enabled). The function checks if we
+ * are currently moving, and does nothing if we are.
  */
 asynStatus p6kAxis::setClosedLoop(bool closedLoop)
 {
@@ -637,17 +655,23 @@ asynStatus p6kAxis::setClosedLoop(bool closedLoop)
   static const char *functionName = "p6kAxis::setClosedLoop";
  
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
- 
-  if (closedLoop) {
-    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
-	      "%s Drive enable on axis %d\n", functionName, axisNo_);
-    sprintf(command, "%dDRIVE1",  axisNo_);
-  } else {
-    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
-	      "%s Drive disable on axis %d\n", functionName, axisNo_);
-    sprintf(command, "%dDRIVE0",  axisNo_);
+
+  int32_t done = 0;
+  pC_->getIntegerParam(axisNo_, pC_->motorStatusDone_, &done);
+  cout << functionName << " done: " << done << endl;
+  cout << functionName << " closed loop: " << closedLoop << endl;
+  if (done == 1) {
+    if (closedLoop) {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
+		"%s Drive enable on axis %d\n", functionName, axisNo_);
+      sprintf(command, "%dDRIVE1",  axisNo_);
+    } else {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
+		"%s Drive disable on axis %d\n", functionName, axisNo_);
+      sprintf(command, "%dDRIVE0",  axisNo_);
+    }
+    status = pC_->lowLevelWriteRead(command, response);
   }
-  status = pC_->lowLevelWriteRead(command, response);
   return status;
 }
 
@@ -718,7 +742,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       printErrors = 1;
     }
 
-    printf("Axis: %d\n", axisNo_);
+    //    printf("Axis: %d\n", axisNo_);
 
     /* Transfer current position and encoder position.*/
     snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPC);

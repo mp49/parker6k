@@ -129,6 +129,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_A_CommandRBVString,       asynParamOctet, &P6K_A_Command_RBV_);
   createParam(P6K_A_ErrorString,            asynParamOctet, &P6K_A_Error_);
   createParam(P6K_A_DelayTimeString,        asynParamFloat64, &P6K_A_DelayTime_);
+  createParam(P6K_A_AutoDriveEnableString,  asynParamInt32, &P6K_A_AutoDriveEnable_);
 
   //Create dummy axis for asyn address 0. This is used for controller parameters.
   printf("%s: Create pAxisZero for controller parameters.\n", functionName);

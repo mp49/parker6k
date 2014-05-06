@@ -39,6 +39,19 @@ record(waveform, "$(M):ErrorMessage")
     field(SCAN, "I/O Intr")
 }
 
+# ///
+# /// Automatic drive enable
+# ///
+record(bo, "$(M):AutoDriveEnable")
+{
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_AUTO_DRIVE_ENABLE")
+   field(ZNAM, "No")
+   field(ONAM, "Yes")
+   field(VAL,  "0")
+   info(autosaveFields, "VAL")
+}
+
 # These are useful if you need to set the software limits 
 # under the feet of the motor record.
 #record(ao, "$(M):HighLimit")
