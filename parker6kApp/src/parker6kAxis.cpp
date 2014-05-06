@@ -117,7 +117,6 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   bool paramStatus = true;
   paramStatus = ((setIntegerParam(pC_->P6K_A_DRES_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_ERES_, 0) == asynSuccess) && paramStatus);
-  paramStatus = ((setIntegerParam(pC_->P6K_A_DRIVE_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_MaxDigits_, 2) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->motorStatusHasEncoder_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->motorStatusGainSupport_, 1) == asynSuccess) && paramStatus);
@@ -256,7 +255,7 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
     }
     stat = (readIntParam(P6K_CMD_DRES, pC_->P6K_A_DRES_, &intVal) == asynSuccess) && stat;
     stat = (readIntParam(P6K_CMD_ERES, pC_->P6K_A_ERES_, &intVal) == asynSuccess) && stat;
-    stat = (readIntParam(P6K_CMD_DRIVE, pC_->P6K_A_DRIVE_, &intVal) == asynSuccess) && stat;
+    stat = (readIntParam(P6K_CMD_DRIVE, pC_->motorStatusPowerOn_, &intVal) == asynSuccess) && stat;
     stat = (readIntParam(P6K_CMD_ENCCNT, pC_->motorStatusHasEncoder_, &intVal) == asynSuccess) && stat;
     stat = (readIntParam(P6K_CMD_LH, pC_->P6K_A_LH_, &intVal) == asynSuccess) && stat;
     stat = (readIntParam(P6K_CMD_LS, pC_->P6K_A_LS_, &intVal) == asynSuccess) && stat;
@@ -301,7 +300,7 @@ void p6kAxis::printAxisParams(void)
   } else {
     printf("  Unknown Drive Type\n");
   }
-  pC_->getIntegerParam(axisNo_, pC_->P6K_A_DRIVE_, &intVal);
+  pC_->getIntegerParam(axisNo_, pC_->motorStatusPowerOn_, &intVal);
   printf("  "P6K_CMD_DRIVE": %d\n", intVal);
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_DRES_, &intVal);  
   printf("  "P6K_CMD_DRES": %d\n", intVal);
@@ -658,9 +657,25 @@ asynStatus p6kAxis::setClosedLoop(bool closedLoop)
 
   int32_t done = 0;
   pC_->getIntegerParam(axisNo_, pC_->motorStatusDone_, &done);
-  cout << functionName << " done: " << done << endl;
-  cout << functionName << " closed loop: " << closedLoop << endl;
+
+  cout << " ******* done: " << done << endl;
+
   if (done == 1) {
+
+    //Check drive status, and dont send anything if we dont need to.
+    int32_t power = 0;
+    pC_->getIntegerParam(axisNo_, pC_->motorStatusPowerOn_, &power);
+
+    cout << " ******* power: " << power << endl;
+    cout << " ******* closedLoop: " << closedLoop << endl;
+
+    if ((power == 1) && (closedLoop)) {
+      return asynSuccess;
+    }
+    if ((power == 0) && (!closedLoop)) {
+      return asynSuccess;
+    }
+
     if (closedLoop) {
       asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
 		"%s Drive enable on axis %d\n", functionName, axisNo_);
@@ -671,6 +686,11 @@ asynStatus p6kAxis::setClosedLoop(bool closedLoop)
       sprintf(command, "%dDRIVE0",  axisNo_);
     }
     status = pC_->lowLevelWriteRead(command, response);
+    
+    if (status == asynSuccess) {
+      setIntegerParam(pC_->motorStatusPowerOn_, static_cast<int>(closedLoop));
+    }
+
   }
   return status;
 }
