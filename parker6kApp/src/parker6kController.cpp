@@ -288,7 +288,8 @@ asynStatus p6kController::printConnectedStatus()
  */
 asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
 {
-  asynStatus status = asynSuccess;
+  //asynStatus status = asynSuccess;
+  bool stat = true;
   int32_t eomReason = 0;
   size_t nwrite = 0;
   size_t nread = 0;
@@ -304,43 +305,50 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
   }
   
   asynPrint(lowLevelPortUser_, ASYN_TRACEIO_DRIVER, "%s: command: %s\n", functionName, command);
-  
+  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s: command: %s\n", functionName, command);   
+
   //Make sure the low level port is connected before we attempt comms
   //Use the controller-wide param P6K_C_CommsError_
-  getIntegerParam(P6K_C_CommsError_, &commsError);
+  //getIntegerParam(P6K_C_CommsError_, &commsError);
 
   memset(response, 0, sizeof(response));
   
-  status = pasynOctetSyncIO->writeRead(lowLevelPortUser_ ,
+  stat = (pasynOctetSyncIO->writeRead(lowLevelPortUser_ ,
 				       command, strlen(command),
 				       temp, P6K_MAXBUF_,
 				       P6K_TIMEOUT_,
-				       &nwrite, &nread, &eomReason );
+				       &nwrite, &nread, &eomReason ) == asynSuccess) && stat;
   
-  if (status) {
-    asynPrint(lowLevelPortUser_, ASYN_TRACE_ERROR, "%s: Error from pasynOctetSyncIO->writeRead. command: %s\n", functionName, command);
+  if (!stat) {
+    asynPrint(lowLevelPortUser_, ASYN_TRACE_ERROR, 
+	      "%s: Error from pasynOctetSyncIO->writeRead. command: %s\n", 
+	      functionName, command);
     setIntegerParam(P6K_C_CommsError_, P6K_ERROR_);
   } else {
     setIntegerParam(P6K_C_CommsError_, P6K_OK_);
   }
 
   //Search for an error response
-  status = errorResponse(temp, response);
-  if (status == asynSuccess) {
+  if (errorResponse(temp, response) == asynSuccess) {
     asynPrint(lowLevelPortUser_, ASYN_TRACE_ERROR, 
 	      "%s: ERROR: Command %s returned an error: %s\n", functionName, command, response);
-    status = asynError;
-  } else {
-    //Deal with a successful command
-    //The P6K will send back a command with a \r\r\n> \n>
-    //The low level port asyn EOS will remove the first >
-    //We deal with the rest in this function
-    status = trimResponse(temp, response);
-  }  
+    stat = false;
+  }
+
+  //The P6K will send back a command with a \r\r\n> \n>
+  //The low level port asyn EOS will remove the first >
+  //(or we removed the error char in the errorResponse function)
+  //We deal with the rest in this function.
+  stat = (trimResponse(temp, response) == asynSuccess) && stat;
 
   asynPrint(lowLevelPortUser_, ASYN_TRACEIO_DRIVER, "%s: response: %s\n", functionName, response); 
-  
-  return status;
+  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s: response: %s\n", functionName, response); 
+
+  if (!stat) {
+    return asynError;
+  }
+
+  return asynSuccess;
 }
 
 /**

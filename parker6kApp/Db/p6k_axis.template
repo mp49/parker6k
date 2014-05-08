@@ -76,6 +76,7 @@ record(longin, "$(M):AutoEnableDelay_RBV")
    field(DTYP, "asynInt32")
    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_AUTO_DRIVE_ENABLE_DELAY")
    field(EGU, "ms")
+   field(SCAN, "I/O Intr")
 }
 
 # ///
@@ -92,6 +93,10 @@ record(bo, "$(M):AutoDisable")
    info(autosaveFields, "VAL")
 }
 
+############################################################################
+# Records to implement a timer to disable the drive power 
+# after the move ends.
+
 # ///
 # /// Timer for the automatic drive disable.
 # /// This is disabled when a move is in progress,
@@ -104,18 +109,12 @@ record(calcout, "$(M):AutoDisableTimer")
    field(OUT, "$(M):AutoDisableTimer.A NPP")
    field(SCAN, "1 second")
    field(EGU, "s")
-}
-record(longout, "$(M):AutoDisableDelay")
-{
-   field(DESC, "Disable Drive Delay")
-   field(VAL, "0")
-   field(EGU, "s")
-   info(autosaveFields, "VAL")
+   field(FLNK, "$(M):AutoDisableAction")
 }
 record(calcout, "$(M):AutoDisableAction")
 {
    field(DESC, "Disable Drive")
-   field(INPA, "$(M):AutoDisableTimer.A CP")
+   field(INPA, "$(M):AutoDisableTimer.VAL")
    field(INPB, "$(M):AutoDisableDelay")
    field(CALC, "A==B")
    field(OOPT, "When Non-zero")
@@ -126,13 +125,24 @@ record(calcout, "$(M):AutoDisableAction")
 }
 
 # ///
+# /// Delay in seconds to execute the drive disable
+# ///
+record(longout, "$(M):AutoDisableDelay")
+{
+   field(DESC, "Disable Drive Delay")
+   field(VAL, "0")
+   field(EGU, "s")
+   info(autosaveFields, "VAL")
+}
+
+# ///
 # /// Disable AutoDriveDisableTimer when a move is active
 # ///
 record(calcout, "$(M):AutoDisableCtrl")
 {
    field(INPA, "$(M).DMOV CP")
    field(CALC, "!A")
-   field(OUT, "$(M):AutoDisableTimer.DISA")
+   field(OUT, "$(M):AutoDisableTimer.DISA PP")
    field(FLNK, "$(M):ResetDisableTimer")    
 }
 
@@ -140,11 +150,12 @@ record(calcout, "$(M):AutoDisableCtrl")
 # /// Reset AutoDriveDisableTimer on a DMOV transition
 # ///
 record(dfanout, "$(M):ResetDisableTimer") {
-  field(VAL, "0")
-  field(OUTA, "$(M):AutoDisableTimer.A PP")   
+  field(VAL, "-1")
+  field(OUTA, "$(M):AutoDisableTimer.A PP")
+  field(OUTB, "$(M):AutoDisableTimer.VAL PP")
 }
 
-
+############################################################################
 
 
 # These are useful if you need to set the software limits 

@@ -658,11 +658,17 @@ asynStatus p6kAxis::setClosedLoop(bool closedLoop)
   int32_t done = 0;
   pC_->getIntegerParam(axisNo_, pC_->motorStatusDone_, &done);
 
+  cout << "p6kAxis::setClosedLoop. axisNo_: " << axisNo_ << endl;
+  cout << "p6kAxis::setClosedLoop. done: " << done << endl;
+
   if (done == 1) {
 
     //Check drive status, and dont send anything if we dont need to.
     int32_t power = 0;
     pC_->getIntegerParam(axisNo_, pC_->motorStatusPowerOn_, &power);
+
+    cout << "p6kAxis::setClosedLoop. power: " << power << endl;
+    cout << "p6kAxis::setClosedLoop. closedLoop: " << closedLoop << endl;
 
     if ((power == 1) && (closedLoop)) {
       return asynSuccess;
