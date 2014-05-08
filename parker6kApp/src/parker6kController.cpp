@@ -130,6 +130,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_A_ErrorString,            asynParamOctet, &P6K_A_Error_);
   createParam(P6K_A_DelayTimeString,        asynParamFloat64, &P6K_A_DelayTime_);
   createParam(P6K_A_AutoDriveEnableString,  asynParamInt32, &P6K_A_AutoDriveEnable_);
+  createParam(P6K_A_AutoDriveEnableDelayString,  asynParamInt32, &P6K_A_AutoDriveEnableDelay_);
 
   //Create dummy axis for asyn address 0. This is used for controller parameters.
   printf("%s: Create pAxisZero for controller parameters.\n", functionName);
@@ -514,6 +515,16 @@ asynStatus p6kController::writeInt32(asynUser *pasynUser, epicsInt32 value)
   if (!pAxis) {
     return asynError;
   } 
+
+  if (function == P6K_A_AutoDriveEnableDelay_) {
+    cout << "Setting drive enable delay: " << value << endl;
+    if (value < 0) {
+      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		"%s: ERROR: forcing drive enable to be >=0. Axis %d\n", 
+		functionName, pAxis->axisNo_);
+      value = 0;
+    }
+  }
 
   status = (pAxis->setIntegerParam(function, value) == asynSuccess) && status;
 

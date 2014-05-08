@@ -1,6 +1,9 @@
 #######################################################
 #
 # Axis template for P6K model 3 motor driver.
+# This provides access to some axis specific driver
+# parameters and some high level logic for controlling
+# drive power.
 # 
 # Macros:
 # M - base PV name (should match the motor record)
@@ -54,6 +57,28 @@ record(bo, "$(M):AutoEnable")
 }
 
 # ///
+# /// Time delay between automatic drive enable and the actual move.
+# /// This delays the move function, so locks the low level
+# /// driver for the time period.
+# /// Units = milliseconds.
+# ///
+record(longout, "$(M):AutoEnableDelay")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_AUTO_DRIVE_ENABLE_DELAY")
+   field(VAL,  "0")
+   field(EGU, "ms")
+   info(autosaveFields, "VAL")
+}
+record(longin, "$(M):AutoEnableDelay_RBV")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_AUTO_DRIVE_ENABLE_DELAY")
+   field(EGU, "ms")
+}
+
+# ///
 # /// Automatic drive disable 
 # /// Disable drive after a configurable time. This record
 # /// enables/disables the record logic that deals with this.
@@ -78,19 +103,25 @@ record(calcout, "$(M):AutoDisableTimer")
    field(CALC, "A+1")
    field(OUT, "$(M):AutoDisableTimer.A NPP")
    field(SCAN, "1 second")
+   field(EGU, "s")
 }
-
+record(longout, "$(M):AutoDisableDelay")
+{
+   field(DESC, "Disable Drive Delay")
+   field(VAL, "0")
+   field(EGU, "s")
+   info(autosaveFields, "VAL")
+}
 record(calcout, "$(M):AutoDisableAction")
 {
    field(DESC, "Disable Drive")
    field(INPA, "$(M):AutoDisableTimer.A CP")
-   field(INPB, "0")
+   field(INPB, "$(M):AutoDisableDelay")
    field(CALC, "A==B")
    field(OOPT, "When Non-zero")
    field(DOPT, "Use OCAL")
    field(OCAL, "0")
    field(OUT, "$(M).CNEN PP")
-   info(autosaveFields, "B")
    field(SDIS, "$(M):AutoDisable")     
 }
 

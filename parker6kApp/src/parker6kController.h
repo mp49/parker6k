@@ -44,6 +44,7 @@
 #define P6K_A_ErrorString      "P6K_A_ERROR"
 #define P6K_A_DelayTimeString  "P6K_A_DELAYTIME"
 #define P6K_A_AutoDriveEnableString  "P6K_A_AUTO_DRIVE_ENABLE"
+#define P6K_A_AutoDriveEnableDelayString  "P6K_A_AUTO_DRIVE_ENABLE_DELAY"
 
 #define P6K_MAXBUF 1024
 
@@ -122,6 +123,7 @@ class p6kController : public asynMotorController {
   int P6K_C_Error_;
   int P6K_A_DelayTime_;
   int P6K_A_AutoDriveEnable_;
+  int P6K_A_AutoDriveEnableDelay_;
   int P6K_C_TSS_SystemReady_;
   int P6K_C_TSS_ProgRunning_;
   int P6K_C_TSS_Immediate_;
