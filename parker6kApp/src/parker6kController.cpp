@@ -128,6 +128,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_A_CommandString,          asynParamOctet, &P6K_A_Command_);
   createParam(P6K_A_ResponseString,         asynParamOctet, &P6K_A_Response_);
   createParam(P6K_A_ErrorString,            asynParamOctet, &P6K_A_Error_);
+  createParam(P6K_A_MoveErrorString,        asynParamOctet, &P6K_A_MoveError_);
   createParam(P6K_A_DelayTimeString,        asynParamFloat64, &P6K_A_DelayTime_);
   createParam(P6K_A_AutoDriveEnableString,  asynParamInt32, &P6K_A_AutoDriveEnable_);
   createParam(P6K_A_AutoDriveEnableDelayString,  asynParamInt32, &P6K_A_AutoDriveEnableDelay_);
@@ -160,6 +161,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   if (lowLevelWriteRead(command, response) != asynSuccess) {
     asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
 	      "%s: Turning off %s failed.\n", functionName, P6K_CMD_ECHO);
+    setStringParam(P6K_C_Error_, "Startup failed. Not starting poller.");
   } else {
 
     memset(command, 0, sizeof(command));
@@ -706,14 +708,16 @@ asynStatus p6kController::poll()
   if (!stat) {
     if (printErrors) {
       asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
-		"ERROR: Problem reading status on controller %s\n", 
-		this->portName);
+		"%s: ERROR: Problem reading status on controller %s\n", 
+		functionName, this->portName);
     }
     setIntegerParam(P6K_C_CommsError_, P6K_ERROR_);
+    setStringParam(P6K_C_Error_, "Problem reading controller status");
     printNextError_ = false;
     return asynError;
   } else {
     setIntegerParam(P6K_C_CommsError_, P6K_OK_);
+    setStringParam(P6K_C_Error_, " ");
     printNextError_ = true;
     return asynSuccess;
   }

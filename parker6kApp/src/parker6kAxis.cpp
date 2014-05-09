@@ -125,6 +125,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   paramStatus = ((setIntegerParam(pC_->P6K_A_LS_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_LH_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setStringParam(pC_->P6K_A_Error_, " ") == asynSuccess) && paramStatus);
+  paramStatus = ((setStringParam(pC_->P6K_A_MoveError_, " ") == asynSuccess) && paramStatus);
   paramStatus = ((setDoubleParam(pC_->P6K_A_DelayTime_, 0.0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_AutoDriveEnable_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_AutoDriveEnableDelay_, 0) == asynSuccess) && paramStatus);
@@ -367,7 +368,7 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
     if (setClosedLoop(true) != asynSuccess) {
       asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
 		"%s ERROR: Failed to enable axis \n", functionName, axisNo_);
-      setStringParam(pC_->P6K_A_Error_, "ERROR: Failed to enable drive");
+      setStringParam(pC_->P6K_A_MoveError_, "ERROR: Failed to enable drive");
       return asynError;
     }
   }
@@ -434,10 +435,10 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
 
   //Check the status of the GO command so we are notified of failed moves.
   if (status != asynSuccess) {
-    setStringParam(pC_->P6K_A_Error_, response);
+    setStringParam(pC_->P6K_A_MoveError_, response);
     commandError_ = true;
   } else {
-    setStringParam(pC_->P6K_A_Error_, " ");
+    setStringParam(pC_->P6K_A_MoveError_, " ");
     commandError_ = false;
   }
   
@@ -708,7 +709,13 @@ asynStatus p6kAxis::poll(bool *moving)
     //Now poll axis status
     if ((status = getAxisStatus(moving)) != asynSuccess) {
       asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
-		"Controller %s Axis %d. %s: getAxisStatus failed to return asynSuccess.\n", pC_->portName, axisNo_, functionName);
+		"Controller %s Axis %d. %s: getAxisStatus failed to return asynSuccess.\n", 
+		pC_->portName, axisNo_, functionName);
+      setStringParam(pC_->P6K_A_Error_, "Problem reading axis status");
+      setIntegerParam(pC_->motorStatusCommsError_, 1);
+    } else {
+      setStringParam(pC_->P6K_A_Error_, " ");
+      setIntegerParam(pC_->motorStatusCommsError_, 0);
     }
   }
   
@@ -891,10 +898,10 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     //Clear error print flag for this axis if problem has been removed.
     if (stat) {
       printNextError_ = true;
+      return asynSuccess;
     }
     
-    //This currently isn't checked by base class polling thread.
-    return asynSuccess;
+    return asynError;
 }
 
 

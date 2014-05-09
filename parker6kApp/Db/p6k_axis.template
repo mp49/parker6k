@@ -31,12 +31,24 @@ record(ao, "$(M):DelayTime")
 }
 
 # ///
-# /// Axis error message (from controller)
+# /// Axis error message
 # ///
 record(waveform, "$(M):ErrorMessage")
 {
     field(DTYP, "asynOctetRead")
     field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_ERROR")
+    field(FTVL, "CHAR")
+    field(NELM, "256")
+    field(SCAN, "I/O Intr")
+}
+
+# ///
+# /// Axis error message (move specific, from controller)
+# ///
+record(waveform, "$(M):MoveErrorMessage")
+{
+    field(DTYP, "asynOctetRead")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_MOVEERROR")
     field(FTVL, "CHAR")
     field(NELM, "256")
     field(SCAN, "I/O Intr")

@@ -30,11 +30,25 @@ record(waveform, "$(S):ErrorMessage")
 }
 
 # ///
+# /// Flag to indicate controller comms error
+# ///
+record(bi, "$(S):CommsError")
+{
+    field(DESC, "Controller Comms")
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_COMMSERROR")
+    field(ZNAM, "OK")
+    field(ONAM, "Comms Failed")
+    field(ZSV,  "NO_ALARM") 
+    field(OSV,  "MAJOR")
+    field(SCAN, "I/O Intr")
+}
+
+# ///
 # /// User command
 # ///
 record(waveform, "$(S):Command")
 {
-    field(PINI, "YES")
     field(DTYP, "asynOctetWrite")
     field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_COMMAND")
     field(FTVL, "CHAR")
