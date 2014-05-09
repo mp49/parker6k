@@ -54,4 +54,20 @@ record(waveform, "$(S):Response")
 }
 
 
+##################################################
+# General purpose Asyn record
+##################################################
+
+# /// 
+# /// Asyn record
+# ///
+record(asyn,"$(S):Asyn")
+{
+    field(DTYP,"asynRecordDevice")
+    field(PORT,"$(COMMSPORT)")
+    field(ADDR,"$(COMMSADDR)")
+    field(OMAX,"1024")
+    field(IMAX,"1024")
+}
+
 
