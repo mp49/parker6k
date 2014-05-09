@@ -11,6 +11,7 @@ include $(TOP)/configure/CONFIG
 # Create and install (or just install)
 # databases, templates, substitutions like this
 DB += p6k_axis.template
+DB += p6k_controller.template
 
 #----------------------------------------------------
 # If <anyname>.db template is not named <anyname>*.template add

@@ -1,0 +1,57 @@
+#######################################################
+#
+# Controller template for P6K model 3 motor driver.
+# This provides access to some controller specific driver
+# parameters.
+# 
+# Macros:
+# S - base PV name
+# PORT - asyn motor driver port
+# ADDR - asyn address (ie. axis number)
+# TIMEOUT - asyn timeout (eg 1)
+# COMMSPORT - low level Asyn port
+# COMMSADDR - low level Asyn addr
+#
+# Matt Pearson
+# May 2014
+#
+#######################################################
+
+# ///
+# /// Axis error message (from controller)
+# ///
+record(waveform, "$(S):ErrorMessage")
+{
+    field(DTYP, "asynOctetRead")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_ERROR")
+    field(FTVL, "CHAR")
+    field(NELM, "256")
+    field(SCAN, "I/O Intr")
+}
+
+# ///
+# /// User command
+# ///
+record(waveform, "$(S):Command")
+{
+    field(PINI, "YES")
+    field(DTYP, "asynOctetWrite")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_COMMAND")
+    field(FTVL, "CHAR")
+    field(NELM, "256")
+}
+
+# ///
+# /// User command response
+# ///
+record(waveform, "$(S):Response")
+{
+    field(DTYP, "asynOctetRead")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_RESPONSE")
+    field(FTVL, "CHAR")
+    field(NELM, "256")
+    field(SCAN, "I/O Intr")
+}
+
+
+

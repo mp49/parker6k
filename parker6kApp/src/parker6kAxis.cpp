@@ -121,7 +121,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   paramStatus = ((setIntegerParam(pC_->motorStatusHasEncoder_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->motorStatusGainSupport_, 1) == asynSuccess) && paramStatus);
   paramStatus = ((setStringParam(pC_->P6K_A_Command_, " ") == asynSuccess) && paramStatus);
-  paramStatus = ((setStringParam(pC_->P6K_A_Command_RBV_, " ") == asynSuccess) && paramStatus);
+  paramStatus = ((setStringParam(pC_->P6K_A_Response_, " ") == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_LS_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_LH_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setStringParam(pC_->P6K_A_Error_, " ") == asynSuccess) && paramStatus);
@@ -397,13 +397,11 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
   if (acceleration != 0) {
     if (max_velocity != 0) {
       epicsFloat64 accel = acceleration / scale;
-      printf("%s  A: %f\n", functionName, accel);
       snprintf(command, P6K_MAXBUF, "%dA%.*f", axisNo_, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
       
       //Set S curve parameters too
-      printf("%s  AA: %f\n", functionName, accel/2);
       snprintf(command, P6K_MAXBUF, "%dAA%.*f", axisNo_, maxDigits, accel/2);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
@@ -653,22 +651,16 @@ asynStatus p6kAxis::setClosedLoop(bool closedLoop)
   char response[P6K_MAXBUF] = {0};
   static const char *functionName = "p6kAxis::setClosedLoop";
  
-  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s closedLoop: %d\n", functionName, closedLoop);
 
   int32_t done = 0;
   pC_->getIntegerParam(axisNo_, pC_->motorStatusDone_, &done);
-
-  cout << "p6kAxis::setClosedLoop. axisNo_: " << axisNo_ << endl;
-  cout << "p6kAxis::setClosedLoop. done: " << done << endl;
 
   if (done == 1) {
 
     //Check drive status, and dont send anything if we dont need to.
     int32_t power = 0;
     pC_->getIntegerParam(axisNo_, pC_->motorStatusPowerOn_, &power);
-
-    cout << "p6kAxis::setClosedLoop. power: " << power << endl;
-    cout << "p6kAxis::setClosedLoop. closedLoop: " << closedLoop << endl;
 
     if ((power == 1) && (closedLoop)) {
       return asynSuccess;

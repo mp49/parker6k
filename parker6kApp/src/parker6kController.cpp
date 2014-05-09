@@ -106,7 +106,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_C_GlobalStatusString,     asynParamInt32, &P6K_C_GlobalStatus_);
   createParam(P6K_C_CommsErrorString,       asynParamInt32, &P6K_C_CommsError_);
   createParam(P6K_C_CommandString,          asynParamOctet, &P6K_C_Command_);
-  createParam(P6K_C_CommandRBVString,       asynParamOctet, &P6K_C_Command_RBV_);
+  createParam(P6K_C_ResponseString,         asynParamOctet, &P6K_C_Response_);
   createParam(P6K_C_ErrorString,            asynParamOctet, &P6K_C_Error_);
   createParam(P6K_C_TSS_SystemReadyString,  asynParamInt32, &P6K_C_TSS_SystemReady_);
   createParam(P6K_C_TSS_ProgRunningString,  asynParamInt32, &P6K_C_TSS_ProgRunning_);
@@ -126,7 +126,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_A_LSString,               asynParamInt32, &P6K_A_LS_);
   createParam(P6K_A_LHString,               asynParamInt32, &P6K_A_LH_);
   createParam(P6K_A_CommandString,          asynParamOctet, &P6K_A_Command_);
-  createParam(P6K_A_CommandRBVString,       asynParamOctet, &P6K_A_Command_RBV_);
+  createParam(P6K_A_ResponseString,         asynParamOctet, &P6K_A_Response_);
   createParam(P6K_A_ErrorString,            asynParamOctet, &P6K_A_Error_);
   createParam(P6K_A_DelayTimeString,        asynParamFloat64, &P6K_A_DelayTime_);
   createParam(P6K_A_AutoDriveEnableString,  asynParamInt32, &P6K_A_AutoDriveEnable_);
@@ -175,7 +175,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
     bool paramStatus = true;
     paramStatus = ((setIntegerParam(P6K_C_GlobalStatus_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setStringParam(P6K_C_Command_, " ") == asynSuccess) && paramStatus);
-    paramStatus = ((setStringParam(P6K_C_Command_RBV_, " ") == asynSuccess) && paramStatus);
+    paramStatus = ((setStringParam(P6K_C_Response_, " ") == asynSuccess) && paramStatus);
     paramStatus = ((setStringParam(P6K_C_Error_, " ") == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_SystemReady_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_ProgRunning_, 0) == asynSuccess) && paramStatus);
@@ -559,6 +559,7 @@ asynStatus p6kController::writeOctet(asynUser *pasynUser, const char *value,
     p6kAxis *pAxis = NULL;
     char command[P6K_MAXBUF_] = {0};
     char response[P6K_MAXBUF_] = {0};
+    char error[P6K_MAXBUF_] = {0};
     const char *functionName = "parker6kController::writeOctet";
 
     asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s.\n", functionName);
@@ -572,22 +573,24 @@ asynStatus p6kController::writeOctet(asynUser *pasynUser, const char *value,
       //Send command to controller
       snprintf(command, P6K_MAXBUF_, "%s", value);
       if (lowLevelWriteRead(command, response) != asynSuccess) {
+	snprintf(error, P6K_MAXBUF_, "Command %s failed", command);
 	asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
-		  "%s: Command %s failed.\n", functionName, command);
+		  "%s: %s.\n", functionName, error);
+	setStringParam(P6K_C_Error_, error);
       } else {
-	setStringParam(P6K_C_Command_RBV_, response);
+	setStringParam(P6K_C_Response_, response);
+	setStringParam(P6K_C_Error_, " ");
       }
     } else if (function == P6K_A_Command_) {
-      //Send axis specific command to controller. This supports the 
-      //primitive commands PREM and POST.?
+      //Send axis specific command to controller. 
       //This adds on the axis number to the command
-      snprintf(command, P6K_MAXBUF_, "%d%s", pAxis->axisNo_, value);
-      if (lowLevelWriteRead(command, response) != asynSuccess) {
-	asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
-		  "%s: Command %s failed for axis %d.\n", functionName, command, pAxis->axisNo_);
-      } else {
-	setStringParam(P6K_A_Command_RBV_, response);
-      }
+      //snprintf(command, P6K_MAXBUF_, "%d%s", pAxis->axisNo_, value);
+      //if (lowLevelWriteRead(command, response) != asynSuccess) {
+      //asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+      //	  "%s: Command %s failed for axis %d.\n", functionName, command, pAxis->axisNo_);
+      //} else {
+      //	setStringParam(P6K_A_Response_, response);
+      //}
     } else {
       status = asynMotorController::writeOctet(pasynUser, value, nChars, nActual);
     }

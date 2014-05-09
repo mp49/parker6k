@@ -23,7 +23,7 @@
 #define P6K_C_GlobalStatusString    "P6K_C_GLOBALSTATUS"
 #define P6K_C_CommsErrorString      "P6K_C_COMMSERROR"
 #define P6K_C_CommandString         "P6K_C_COMMAND"
-#define P6K_C_CommandRBVString      "P6K_C_COMMAND_RBV"
+#define P6K_C_ResponseString        "P6K_C_RESPONSE"
 #define P6K_C_ErrorString           "P6K_C_ERROR"
 #define P6K_C_TSS_SystemReadyString "P6K_C_TSS_SYSTEMREADY"
 #define P6K_C_TSS_ProgRunningString "P6K_C_TSS_PROGRUNNING"
@@ -38,7 +38,7 @@
 #define P6K_A_AXSDEFString     "P6K_A_AXSDEF"
 #define P6K_A_MaxDigitsString  "P6K_A_MAXDIGITS"
 #define P6K_A_CommandString    "P6K_A_COMMAND"
-#define P6K_A_CommandRBVString "P6K_A_COMMAND_RBV"
+#define P6K_A_ResponseString   "P6K_A_RESPONSE"
 #define P6K_A_LSString         "P6K_A_LS"
 #define P6K_A_LHString         "P6K_A_LH"
 #define P6K_A_ErrorString      "P6K_A_ERROR"
@@ -117,8 +117,8 @@ class p6kController : public asynMotorController {
   int P6K_A_LH_;
   int P6K_C_Command_;
   int P6K_A_Command_;
-  int P6K_C_Command_RBV_;
-  int P6K_A_Command_RBV_;
+  int P6K_C_Response_;
+  int P6K_A_Response_;
   int P6K_A_Error_;
   int P6K_C_Error_;
   int P6K_A_DelayTime_;

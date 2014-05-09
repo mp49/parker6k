@@ -10,7 +10,14 @@ pattern {P, M, DESC, DTYP, DIR, VELO, VBAS, ACCL, BDST, BVEL, BACC, PORT, ADDR, 
 file p6k_axis.template
 {
 pattern {M, PORT, ADDR, TIMEOUT}
-        {BL99:Mot:P6K1, P6K, 1, 1} 	  
+        {BL99:Mot:P6K1, P6K, 1, 1} 
+        {BL99:Mot:P6K2, P6K, 2, 1} 
+}
+
+file p6k_controller.template
+{
+pattern {S, PORT, ADDR, TIMEOUT, COMMSPORT, COMMSADDR}
+	{BL99:Mot:Controller1, P6K, 0, 1, 6K, 0}
 }
 
 file bo.template

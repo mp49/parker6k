@@ -79,6 +79,10 @@ record(longin, "$(M):AutoEnableDelay_RBV")
    field(SCAN, "I/O Intr")
 }
 
+############################################################################
+# Records to implement a timer to disable the drive power 
+# after the move ends.
+
 # ///
 # /// Automatic drive disable 
 # /// Disable drive after a configurable time. This record
@@ -92,10 +96,6 @@ record(bo, "$(M):AutoDisable")
    field(VAL,  "1")
    info(autosaveFields, "VAL")
 }
-
-############################################################################
-# Records to implement a timer to disable the drive power 
-# after the move ends.
 
 # ///
 # /// Timer for the automatic drive disable.
@@ -136,7 +136,8 @@ record(longout, "$(M):AutoDisableDelay")
 }
 
 # ///
-# /// Disable AutoDriveDisableTimer when a move is active
+# /// Disable AutoDriveDisableTimer when a move is active.
+# /// Also Reset AutoDriveDisableTimer on any DMOV transition
 # ///
 record(calcout, "$(M):AutoDisableCtrl")
 {
@@ -147,7 +148,7 @@ record(calcout, "$(M):AutoDisableCtrl")
 }
 
 # ///
-# /// Reset AutoDriveDisableTimer on a DMOV transition
+# /// Reset AutoDriveDisableTimer
 # ///
 record(dfanout, "$(M):ResetDisableTimer") {
   field(VAL, "-1")
