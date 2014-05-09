@@ -82,6 +82,14 @@ record(asyn,"$(S):Asyn")
     field(ADDR,"$(COMMSADDR)")
     field(OMAX,"1024")
     field(IMAX,"1024")
+    field(AUCT,"0")
+}
+
+record(dfanout, "$(S):AsynAUCT")
+{
+    field(DOL, "0")
+    field(OUTA, "$(S):Asyn.AUCT PP")
+    field(PINI, "YES")
 }
 
 

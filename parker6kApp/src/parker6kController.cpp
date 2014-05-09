@@ -579,6 +579,7 @@ asynStatus p6kController::writeOctet(asynUser *pasynUser, const char *value,
 	asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
 		  "%s: %s.\n", functionName, error);
 	setStringParam(P6K_C_Error_, error);
+	setStringParam(P6K_C_Response_, " ");
       } else {
 	setStringParam(P6K_C_Response_, response);
 	setStringParam(P6K_C_Error_, " ");
