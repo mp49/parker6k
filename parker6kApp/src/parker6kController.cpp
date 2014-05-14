@@ -56,17 +56,15 @@ const epicsUInt32 p6kController::P6K_TSS_CMDERROR_    = 12;
 const epicsUInt32 p6kController::P6K_TSS_MEMERROR_    = 26;
 
 //C function prototypes, for the functions that can be called on IOC shell.
-//Some of these functions are provided to ease transition to the model 3 driver. Some of these
-//functions could be handled by the parameter library.
 extern "C" {
   asynStatus p6kCreateController(const char *portName, const char *lowLevelPortName, int lowLevelPortAddress, 
-					 int numAxes, int movingPollPeriod, int idlePollPeriod);
+				 int numAxes, int movingPollPeriod, int idlePollPeriod, int poller);
   
   asynStatus p6kCreateAxis(const char *p6kName, int axis);
 
   asynStatus p6kCreateAxes(const char *p6kName, int numAxes);
   
-   
+  asynStatus p6kUpload(const char *p6kName, const char *filename);
 }
 
 /**
@@ -76,16 +74,17 @@ extern "C" {
  * @param lowLevelPortAddress The asyn address for the low level port
  * @param numAxes The number of axes on the controller (1 based)
  * @param movingPollPeriod The time (in milliseconds) between polling when axes are moving
- * @param movingPollPeriod The time (in milliseconds) between polling when axes are idle
+ * @param idlePollPeriod The time (in milliseconds) between polling when axes are idle
  */
 p6kController::p6kController(const char *portName, const char *lowLevelPortName, int lowLevelPortAddress, 
-			       int numAxes, double movingPollPeriod, double idlePollPeriod)
+			     int numAxes, double movingPollPeriod, double idlePollPeriod, int poller)
   : asynMotorController(portName, numAxes+1, NUM_MOTOR_DRIVER_PARAMS,
 			0, // No additional interfaces
 			0, // No addition interrupt interfaces
 			ASYN_CANBLOCK | ASYN_MULTIDEVICE, 
 			1, // autoconnect
-			0, 0)  // Default priority and stack size
+			0, 0),  // Default priority and stack size
+    movingPollPeriod_(movingPollPeriod), idlePollPeriod_(idlePollPeriod), poller_(poller)
 {
   static const char *functionName = "p6kController::p6kController";
 
@@ -171,8 +170,10 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
       asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
 		"%s: Continuous command execution mode (%s) failed.\n", functionName, P6K_CMD_COMEXC);
     }
-    
-    startPoller(movingPollPeriod, idlePollPeriod, P6K_FORCED_FAST_POLLS_);
+
+    if (poller_ != 0) {
+      startPoller();
+    }
 
     bool paramStatus = true;
     paramStatus = ((setIntegerParam(P6K_C_GlobalStatus_, 0) == asynSuccess) && paramStatus);
@@ -228,12 +229,6 @@ asynStatus p6kController::lowLevelPortConnect(const char *port, int addr, asynUs
 	      port);
     return status;
   }
-
-  //Do I want to disconnect below? If the IP address comes up, will the driver recover
-  //if the poller functions are running? Might have to use asynManager->isConnected to
-  //test connection status of low level port (in the pollers). But then autosave 
-  //restore doesn't work (and we would save wrong positions). So I need to 
-  //have a seperate function(s) to deal with connecting after IOC init.
 
   status = pasynOctetSyncIO->setInputEos(*ppasynUser, inputEos, strlen(inputEos) );
   if (status) {
@@ -435,6 +430,9 @@ asynStatus p6kController::trimResponse(char *input, char *output)
 }
 
 
+/**
+ * asynReport function. Currently this just calls the base class. 
+ */
 void p6kController::report(FILE *fp, int level)
 {
   int32_t axis = 0;
@@ -460,7 +458,7 @@ void p6kController::report(FILE *fp, int level)
  * Deal with controller specific epicsFloat64 params.
  * @param pasynUser
  * @param value
- * @param asynStatus
+ * @return asynStatus
  */
 asynStatus p6kController::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
 {
@@ -508,7 +506,7 @@ asynStatus p6kController::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
  * Deal with controller specific epicsInt32 params.
  * @param pasynUser
  * @param value
- * @param asynStatus
+ * @return asynStatus
  */
 asynStatus p6kController::writeInt32(asynUser *pasynUser, epicsInt32 value)
 {
@@ -552,7 +550,14 @@ asynStatus p6kController::writeInt32(asynUser *pasynUser, epicsInt32 value)
 
 }
 
-
+/**
+ * Deal with controller specific asynOctet params.
+ * @param pasynUser
+ * @param value
+ * @param nChars
+ * @param nActual
+ * @return asynStatus
+ */
 asynStatus p6kController::writeOctet(asynUser *pasynUser, const char *value, 
                                     size_t nChars, size_t *nActual)
 {
@@ -641,6 +646,22 @@ p6kAxis* p6kController::getAxis(int axisNo)
   return pAxes_[axisNo];
 }
 
+/**
+ * Wrapper for asynMotorController::startPoller.
+ * @return asynStatus
+ */
+asynStatus p6kController::startPoller(void)
+{
+  asynStatus status = asynError;
+  static const char *functionName = "p6kController::startPoller";
+
+  printf("%s: Starting poller.\n", functionName);
+
+  status = asynMotorController::startPoller(movingPollPeriod_, idlePollPeriod_, P6K_FORCED_FAST_POLLS_);
+
+  return status;
+}
+
 
 /** 
  * Polls the controller, rather than individual axis.
@@ -725,144 +746,89 @@ asynStatus p6kController::poll()
 }
 
 
-
-
 /**
- * Disable the check in the axis poller that reads ix24 to check if hardware limits
- * are disabled. By default this is enabled for safety reasons. It sets the motor
- * record PROBLEM bit in MSTA, which results in the record going into MAJOR/STATE alarm.
- * @param axis Axis number to disable the check for.
+ * Write a configuration file to the controller. This function reads a ASCII file
+ * that should only contain P6K commands in it. Any lines containing whitespace are rejected.
+ * 
+ * If any command fails then the function prints an error and exits.
+ * This function should be called after the driver controller instantiation.
+ * This function starts the driver poller thread (depending on the value
+ * of the poller parameter passed into the controller object). 
+ * 
+ * @param fileName (and full path)
+ * @return asynStatus
  */
-/*asynStatus p6kController::p6kDisableLimitsCheck(int axis) 
+asynStatus p6kController::upload(const char *filename) 
 {
-  p6kAxis *pA = NULL;
-  static const char *functionName = "p6kController::p6kDisableLimitsCheck";
+  FILE *fptr = NULL;
+  char line[P6K_MAXBUF_] = {0};
+  char response[P6K_MAXBUF_] = {0};
+  const char *whitespace = "# \n\t";
+  uint32_t count = 0;
+  const char *functionName = "p6kController::upload";
 
-  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
+  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);  
 
-  this->lock();
-  pA = getAxis(axis);
-  if (pA) {
-    pA->limitsCheckDisable_ = 1;
-    asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, 
-              "%s. Disabling hardware limits disable check on controller %s, axis %d\n", 
-              functionName, portName, pA->axisNo_);
-  } else {
+  printf("%s: Uploading file: %s\n", functionName, filename);  
+
+  if (access(filename, R_OK) != 0) {
+    perror(functionName);
     asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
-	      "%s: Error: axis %d has not been configured using p6kCreateAxis.\n", functionName, axis);
-    return asynError;
-  }
-  this->unlock();
-  return asynSuccess;
-  }*/
-
-/**
- * Disable the check in the axis poller that reads ix24 to check if hardware limits
- * are disabled. By default this is enabled for safety reasons. It sets the motor
- * record PROBLEM bit in MSTA, which results in the record going into MAJOR/STATE alarm.
- * This function will disable the check for all axes on this controller.
- */
- /*asynStatus p6kController::p6kDisableLimitsCheck(void) 
-{
-  p6kAxis *pA = NULL;
-  static const char *functionName = "p6kController::p6kDisableLimitsCheck";
-
-  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
-
-  this->lock();
-  for (int i=0; i<numAxes_; i++) {
-    pA = getAxis(i);
-    if (!pA) continue;
-    pA->limitsCheckDisable_ = 1;
-    asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, 
-              "%s. Disabling hardware limits disable check on controller %s, axis %d\n", 
-              functionName, portName, pA->axisNo_);
-  }
-  this->unlock();
-  return asynSuccess;
-  }*/
-
-
-/**
- * Set the P6K axis scale factor to increase resolution in the motor record.
- * Default value is 1.
- * @param axis Axis number to set the P6K axis scale factor.
- * @param scale Scale factor to set
- */
-  /*asynStatus p6kController::p6kSetAxisScale(int axis, int scale) 
-{
-  p6kAxis *pA = NULL;
-  static const char *functionName = "p6kController::p6kSetAxisScale";
-
-  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
-
-  if (scale < 1) {
-    asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "%s: Error: scale factor must be >=1.\n", functionName);
+              "%s ERROR: File could not be read.\n", functionName);
+    setStringParam(P6K_C_Error_, "ERROR: Upload file could not be read.");
     return asynError;
   }
 
-  this->lock();
-  pA = getAxis(axis);
-  if (pA) {
-    pA->scale_ = scale;
-    asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, 
-              "%s. Setting scale factor of &d on axis %d, on controller %s.\n", 
-              functionName, pA->scale_, pA->axisNo_, portName);
-
-  } else {
+  if ((fptr = fopen(filename, "r")) == NULL) {
+    perror(functionName);
     asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
-	      "%s: Error: axis %d has not been configured using p6kCreateAxis.\n", functionName, axis);
+              "%s ERROR: File could not be read.\n", functionName);
     return asynError;
   }
-  this->unlock();
-  return asynSuccess;
-  }*/
 
-
-/**
- * If we have an open loop axis that has an encoder coming back on a different channel
- * then the encoder readback axis number can be set here. This ensures that the encoder
- * will be used for the position readback. It will also ensure that the encoder axis
- * is set correctly when performing a set position on the open loop axis.
- *
- * To use this function, the axis number used for the encoder must have been configured
- * already using p6kCreateAxis.
- *
- * @param controller The Asyn port name for the P6K controller.
- * @param axis Axis number to set the P6K axis scale factor.
- * @param encoder_axis The axis number that the encoder is fed into.  
- */
-   /*asynStatus p6kController::p6kSetOpenLoopEncoderAxis(int axis, int encoder_axis)
-{
-  p6kAxis *pA = NULL;
-  static const char *functionName = "p6kController::p6kSetOpenLoopEncoderAxis";
-
-  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
-
-  this->lock();
-  pA = getAxis(axis);
-  if (pA) {
-    //Test that the encoder axis has also been configured
-    if (getAxis(encoder_axis) == NULL) {
+  while (fgets(line, P6K_MAXBUF_-1, fptr)) {
+    //Remove newline
+    line[strlen(line)-1]='\0';
+    //reject if any whitespace
+    if (strpbrk(line, whitespace) == NULL) {
+      printf("%s: %s\n", functionName, line);  
+      if (lowLevelWriteRead(line, response) != asynSuccess) {
+	asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		  "%s: Command %s failed.\n", functionName, line);
+	return asynError;
+      }
+      ++count;
+    } else {
       asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
-		"%s: Error: encoder axis %d has not been configured using p6kCreateAxis.\n", functionName, encoder_axis);
-      return asynError;
+		  "%s: Skipping %s due to whitespace.\n", functionName, line);
     }
-    pA->encoder_axis_ = encoder_axis;
-    asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, 
-              "%s. Setting encoder axis &d for axis %d, on controller %s.\n", 
-              functionName, pA->encoder_axis_, pA->axisNo_, portName);
+    memset(line, 0, sizeof(line));
+  }
 
-  } else {
+  if (fclose(fptr)) {
+    perror(functionName);
+  }
+
+  if (count==0) {
     asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
-	      "%s: Error: axis %d has not been configured using p6kCreateAxis.\n", functionName, axis);
+              "%s ERROR: Empty file.\n", functionName);
     return asynError;
   }
-  this->unlock();
+
+  if (poller_ == 0) {
+      startPoller();
+    }
+
   return asynSuccess;
-  }*/
+}
 
 
+/**
+ * Implement co-ordinated moves.
+ * @param deferMoves Flag to indicate we are setting or executing deferred moves.
+ *                   0=turn off (execute), 1=turn on (defer moves)
+ * @return asynStatus 
+ */
 asynStatus p6kController::setDeferredMoves(bool deferMoves)
 {
   asynStatus status = asynSuccess;
@@ -952,11 +918,11 @@ extern "C" {
  *
  */
 asynStatus p6kCreateController(const char *portName, const char *lowLevelPortName, int lowLevelPortAddress, 
-				int numAxes, int movingPollPeriod, int idlePollPeriod)
+			       int numAxes, int movingPollPeriod, int idlePollPeriod, int poller)
 {
 
     p6kController *pp6kController
-      = new p6kController(portName, lowLevelPortName, lowLevelPortAddress, numAxes, movingPollPeriod/1000., idlePollPeriod/1000.);
+      = new p6kController(portName, lowLevelPortName, lowLevelPortAddress, numAxes, movingPollPeriod/1000., idlePollPeriod/1000., poller);
     pp6kController = NULL;
 
     return asynSuccess;
@@ -1027,6 +993,25 @@ asynStatus p6kCreateAxes(const char *p6kName,
   return asynSuccess;
 }
 
+asynStatus p6kUpload(const char *p6kName, const char *filename)
+{
+  asynStatus status = asynError; 
+  p6kController *pC;
+  static const char *functionName = "p6kUpload";
+  pC = (p6kController*) findAsynPortDriver(p6kName);
+  if (!pC) {
+    printf("%s:%s: Error port %s not found\n",
+           driverName, functionName, p6kName);
+    return status;
+  }
+
+  pC->lock();
+  status = pC->upload(filename);
+  pC->unlock();
+  
+  return status;
+}
+
 
 
 /* Code for iocsh registration */
@@ -1038,16 +1023,18 @@ static const iocshArg p6kCreateControllerArg2 = {"Low level port address", iocsh
 static const iocshArg p6kCreateControllerArg3 = {"Number of axes", iocshArgInt};
 static const iocshArg p6kCreateControllerArg4 = {"Moving poll rate (ms)", iocshArgInt};
 static const iocshArg p6kCreateControllerArg5 = {"Idle poll rate (ms)", iocshArgInt};
+static const iocshArg p6kCreateControllerArg6 = {"Start Poller (0 or 1)", iocshArgInt};
 static const iocshArg * const p6kCreateControllerArgs[] = {&p6kCreateControllerArg0,
 							    &p6kCreateControllerArg1,
 							    &p6kCreateControllerArg2,
 							    &p6kCreateControllerArg3,
 							    &p6kCreateControllerArg4,
-							    &p6kCreateControllerArg5};
-static const iocshFuncDef configp6kCreateController = {"p6kCreateController", 6, p6kCreateControllerArgs};
+							    &p6kCreateControllerArg5,
+							    &p6kCreateControllerArg6};
+static const iocshFuncDef configp6kCreateController = {"p6kCreateController", 7, p6kCreateControllerArgs};
 static void configp6kCreateControllerCallFunc(const iocshArgBuf *args)
 {
-  p6kCreateController(args[0].sval, args[1].sval, args[2].ival, args[3].ival, args[4].ival, args[5].ival);
+  p6kCreateController(args[0].sval, args[1].sval, args[2].ival, args[3].ival, args[4].ival, args[5].ival, args[6].ival);
 }
 
 
@@ -1075,50 +1062,16 @@ static void configp6kAxesCallFunc(const iocshArgBuf *args)
   p6kCreateAxes(args[0].sval, args[1].ival);
 }
 
-
-/* p6kDisableLimitsCheck */
-/*static const iocshArg p6kDisableLimitsCheckArg0 = {"Controller port name", iocshArgString};
-static const iocshArg p6kDisableLimitsCheckArg1 = {"Axis number", iocshArgInt};
-static const iocshArg p6kDisableLimitsCheckArg2 = {"All Axes", iocshArgInt};
-static const iocshArg * const p6kDisableLimitsCheckArgs[] = {&p6kDisableLimitsCheckArg0,
-							      &p6kDisableLimitsCheckArg1,
-							      &p6kDisableLimitsCheckArg2};
-static const iocshFuncDef configp6kDisableLimitsCheck = {"p6kDisableLimitsCheck", 3, p6kDisableLimitsCheckArgs};
-
-static void configp6kDisableLimitsCheckCallFunc(const iocshArgBuf *args)
+/* p6kUpload */
+static const iocshArg p6kUploadArg0 = {"Controller port name", iocshArgString};
+static const iocshArg p6kUploadArg1 = {"Filename", iocshArgString};
+static const iocshArg * const p6kUploadArgs[] = {&p6kUploadArg0,
+						 &p6kUploadArg1};
+static const iocshFuncDef configp6kUpload = {"p6kUpload", 2, p6kUploadArgs};
+static void configp6kUploadCallFunc(const iocshArgBuf *args)
 {
-  p6kDisableLimitsCheck(args[0].sval, args[1].ival, args[2].ival);
-  }*/
-
-
-
-/* p6kSetAxisScale */
-/*static const iocshArg p6kSetAxisScaleArg0 = {"Controller port name", iocshArgString};
-static const iocshArg p6kSetAxisScaleArg1 = {"Axis number", iocshArgInt};
-static const iocshArg p6kSetAxisScaleArg2 = {"Scale", iocshArgInt};
-static const iocshArg * const p6kSetAxisScaleArgs[] = {&p6kSetAxisScaleArg0,
-							      &p6kSetAxisScaleArg1,
-							      &p6kSetAxisScaleArg2};
-static const iocshFuncDef configp6kSetAxisScale = {"p6kSetAxisScale", 3, p6kSetAxisScaleArgs};
-
-static void configp6kSetAxisScaleCallFunc(const iocshArgBuf *args)
-{
-  p6kSetAxisScale(args[0].sval, args[1].ival, args[2].ival);
-  }*/
-
-/* p6kSetOpenLoopEncoderAxis */
-/*static const iocshArg p6kSetOpenLoopEncoderAxisArg0 = {"Controller port name", iocshArgString};
-static const iocshArg p6kSetOpenLoopEncoderAxisArg1 = {"Axis number", iocshArgInt};
-static const iocshArg p6kSetOpenLoopEncoderAxisArg2 = {"Encoder Axis", iocshArgInt};
-static const iocshArg * const p6kSetOpenLoopEncoderAxisArgs[] = {&p6kSetOpenLoopEncoderAxisArg0,
-								  &p6kSetOpenLoopEncoderAxisArg1,
-								  &p6kSetOpenLoopEncoderAxisArg2};
-static const iocshFuncDef configp6kSetOpenLoopEncoderAxis = {"p6kSetOpenLoopEncoderAxis", 3, p6kSetOpenLoopEncoderAxisArgs};
-
-static void configp6kSetOpenLoopEncoderAxisCallFunc(const iocshArgBuf *args)
-{
-  p6kSetOpenLoopEncoderAxis(args[0].sval, args[1].ival, args[2].ival);
-  }*/
+  p6kUpload(args[0].sval, args[1].sval);
+}
 
 
 static void p6kControllerRegister(void)
@@ -1126,9 +1079,7 @@ static void p6kControllerRegister(void)
   iocshRegister(&configp6kCreateController,   configp6kCreateControllerCallFunc);
   iocshRegister(&configp6kAxis,               configp6kAxisCallFunc);
   iocshRegister(&configp6kAxes,               configp6kAxesCallFunc);
-  //  iocshRegister(&configp6kDisableLimitsCheck, configp6kDisableLimitsCheckCallFunc);
-  //  iocshRegister(&configp6kSetAxisScale, configp6kSetAxisScaleCallFunc);
-  // iocshRegister(&configp6kSetOpenLoopEncoderAxis, configp6kSetOpenLoopEncoderAxisCallFunc);
+  iocshRegister(&configp6kUpload,             configp6kUploadCallFunc);
 }
 epicsExportRegistrar(p6kControllerRegister);
 

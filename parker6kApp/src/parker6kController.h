@@ -82,7 +82,7 @@ class p6kController : public asynMotorController {
 
  public:
   p6kController(const char *portName, const char *lowLevelPortName, int lowLevelPortAddress, int numAxes, double movingPollPeriod, 
-		 double idlePollPeriod);
+		double idlePollPeriod, int poller);
 
   virtual ~p6kController();
 
@@ -98,6 +98,8 @@ class p6kController : public asynMotorController {
   p6kAxis* getAxis(asynUser *pasynUser);
   p6kAxis* getAxis(int axisNo);
   asynStatus poll();
+
+  asynStatus upload(const char *filename); 
 
   //Set the open loop encoder axis
   asynStatus pk6SetOpenLoopEncoderAxis(int axis, int encoder_axis);
@@ -142,10 +144,14 @@ class p6kController : public asynMotorController {
   epicsFloat64 nowTimeSecs_;
   epicsFloat64 lastTimeSecs_;
   bool printNextError_;
+  double movingPollPeriod_;
+  double idlePollPeriod_;
+  int poller_;
   asynStatus lowLevelWriteRead(const char *command, char *response);
   asynStatus trimResponse(char *input, char *output);
   asynStatus errorResponse(char *input, char *output);
   asynStatus lowLevelPortConnect(const char *port, int addr, asynUser **ppasynUser, const char *inputEos, const char *outputEos);
+  asynStatus startPoller(void);
 
   //static class data members
 

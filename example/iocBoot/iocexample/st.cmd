@@ -7,6 +7,8 @@
 
 cd ${TOP}
 
+epicsEnvSet("P6K_CONFIG", "/home/controls/motion/devel/matt/config")
+
 ## Register all support components
 dbLoadDatabase "dbd/example.dbd"
 example_registerRecordDeviceDriver pdbbase
@@ -23,7 +25,8 @@ drvAsynIPPortConfigure("6K","192.168.200.177:4001",0,0,0)
 #asynSetTraceMask("6K",0,0xFF)
 #asynSetTraceIOMask("6K",0,0xFF)
 
-p6kCreateController("P6K","6K",0,2,500,1000)
+p6kCreateController("P6K","6K",0,2,500,1000,0)
+p6kUpload("P6K", "$(P6K_CONFIG)")
 
 #asynSetTraceMask("P6K",0,0xFF)
 #asynSetTraceIOMask("P6K",0,0xFF)
