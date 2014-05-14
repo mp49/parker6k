@@ -23,7 +23,6 @@ TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
 
 -include $(TOP)/../../setup_release
 SUPPORT=$(EPICS_SUPPORT)
-
 ASYN=           $(SUPPORT)/asyn
 MOTOR=		$(SUPPORT)/motor
 
