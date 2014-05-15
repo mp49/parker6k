@@ -45,6 +45,24 @@ record(bi, "$(S):CommsError")
 }
 
 # ///
+# /// Flag to indicate controller config error
+# /// By default this is 'OK'. If using the upload
+# /// driver function it will be set to 'Error' if 
+# /// there is a problem uploading the commands.
+# ///
+record(bi, "$(S):Config")
+{
+    field(DESC, "Controller Config")
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_CONFIG")
+    field(ZNAM, "Error")
+    field(ONAM, "OK")
+    field(ZSV,  "MAJOR")
+    field(OSV,  "NO_ALARM") 
+    field(SCAN, "I/O Intr")
+}
+
+# ///
 # /// User command
 # ///
 record(waveform, "$(S):Command")

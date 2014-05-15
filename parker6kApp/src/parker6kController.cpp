@@ -58,7 +58,7 @@ const epicsUInt32 p6kController::P6K_TSS_MEMERROR_    = 26;
 //C function prototypes, for the functions that can be called on IOC shell.
 extern "C" {
   asynStatus p6kCreateController(const char *portName, const char *lowLevelPortName, int lowLevelPortAddress, 
-				 int numAxes, int movingPollPeriod, int idlePollPeriod, int poller);
+				 int numAxes, int movingPollPeriod, int idlePollPeriod);
   
   asynStatus p6kCreateAxis(const char *p6kName, int axis);
 
@@ -77,14 +77,14 @@ extern "C" {
  * @param idlePollPeriod The time (in milliseconds) between polling when axes are idle
  */
 p6kController::p6kController(const char *portName, const char *lowLevelPortName, int lowLevelPortAddress, 
-			     int numAxes, double movingPollPeriod, double idlePollPeriod, int poller)
+			     int numAxes, double movingPollPeriod, double idlePollPeriod)
   : asynMotorController(portName, numAxes+1, NUM_MOTOR_DRIVER_PARAMS,
 			0, // No additional interfaces
 			0, // No addition interrupt interfaces
 			ASYN_CANBLOCK | ASYN_MULTIDEVICE, 
 			1, // autoconnect
 			0, 0),  // Default priority and stack size
-    movingPollPeriod_(movingPollPeriod), idlePollPeriod_(idlePollPeriod), poller_(poller)
+    movingPollPeriod_(movingPollPeriod), idlePollPeriod_(idlePollPeriod)
 {
   static const char *functionName = "p6kController::p6kController";
 
@@ -107,6 +107,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_C_CommandString,          asynParamOctet, &P6K_C_Command_);
   createParam(P6K_C_ResponseString,         asynParamOctet, &P6K_C_Response_);
   createParam(P6K_C_ErrorString,            asynParamOctet, &P6K_C_Error_);
+  createParam(P6K_C_ConfigString,           asynParamInt32, &P6K_C_Config_);
   createParam(P6K_C_TSS_SystemReadyString,  asynParamInt32, &P6K_C_TSS_SystemReady_);
   createParam(P6K_C_TSS_ProgRunningString,  asynParamInt32, &P6K_C_TSS_ProgRunning_);
   createParam(P6K_C_TSS_ImmediateString,    asynParamInt32, &P6K_C_TSS_Immediate_);
@@ -171,15 +172,14 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
 		"%s: Continuous command execution mode (%s) failed.\n", functionName, P6K_CMD_COMEXC);
     }
 
-    if (poller_ != 0) {
-      startPoller();
-    }
+    startPoller();
 
     bool paramStatus = true;
     paramStatus = ((setIntegerParam(P6K_C_GlobalStatus_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setStringParam(P6K_C_Command_, " ") == asynSuccess) && paramStatus);
     paramStatus = ((setStringParam(P6K_C_Response_, " ") == asynSuccess) && paramStatus);
     paramStatus = ((setStringParam(P6K_C_Error_, " ") == asynSuccess) && paramStatus);
+    paramStatus = ((setIntegerParam(P6K_C_Config_, 1) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_SystemReady_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_ProgRunning_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_Immediate_, 0) == asynSuccess) && paramStatus);
@@ -748,18 +748,24 @@ asynStatus p6kController::poll()
 
 /**
  * Write a configuration file to the controller. This function reads a ASCII file
- * that should only contain P6K commands in it. Any lines containing whitespace are rejected.
+ * that should only contain P6K commands in it, terminated by a newline. 
+ * Any commands with comments or whitespace are rejected. 
+ * I kept this simple to leave open the possibility of
+ * porting to other platforms.
  * 
- * If any command fails then the function prints an error and exits.
- * This function should be called after the driver controller instantiation.
- * This function starts the driver poller thread (depending on the value
- * of the poller parameter passed into the controller object). 
+ * If any command fails then the function prints an error and sets an error parameter.
+ *
+ * This function should be called after the driver controller instantiation, but before
+ * the axis objects are instantiated. Calling this function to setup the controller
+ * is optional. The driver can be used without it if the user has another means of 
+ * pre-configuring the controller.
  * 
  * @param fileName (and full path)
  * @return asynStatus
  */
 asynStatus p6kController::upload(const char *filename) 
 {
+  asynStatus status = asynSuccess;
   FILE *fptr = NULL;
   char line[P6K_MAXBUF_] = {0};
   char response[P6K_MAXBUF_] = {0};
@@ -776,33 +782,39 @@ asynStatus p6kController::upload(const char *filename)
     asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
               "%s ERROR: File could not be read.\n", functionName);
     setStringParam(P6K_C_Error_, "ERROR: Upload file could not be read.");
-    return asynError;
+    status = asynError;
   }
 
-  if ((fptr = fopen(filename, "r")) == NULL) {
-    perror(functionName);
-    asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
-              "%s ERROR: File could not be read.\n", functionName);
-    return asynError;
-  }
-
-  while (fgets(line, P6K_MAXBUF_-1, fptr)) {
-    //Remove newline
-    line[strlen(line)-1]='\0';
-    //reject if any whitespace
-    if (strpbrk(line, whitespace) == NULL) {
-      printf("%s: %s\n", functionName, line);  
-      if (lowLevelWriteRead(line, response) != asynSuccess) {
-	asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
-		  "%s: Command %s failed.\n", functionName, line);
-	return asynError;
-      }
-      ++count;
-    } else {
+  if (status == asynSuccess) {
+    if ((fptr = fopen(filename, "r")) == NULL) {
+      perror(functionName);
       asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
-		  "%s: Skipping %s due to whitespace.\n", functionName, line);
+		"%s ERROR: File could not be read.\n", functionName);
+      status = asynError;
     }
-    memset(line, 0, sizeof(line));
+
+    while (fgets(line, P6K_MAXBUF_-1, fptr)) {
+      //Remove newline
+      line[strlen(line)-1]='\0';
+      //reject if any whitespace
+      if (strpbrk(line, whitespace) == NULL) {
+	printf("%s: %s\n", functionName, line);  
+	if (lowLevelWriteRead(line, response) != asynSuccess) {
+	  asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		    "%s: Command %s failed.\n", functionName, line);
+	  status = asynError;
+	  break;
+	}
+	++count;
+      } else {
+	asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		  "%s: Skipping %s due to whitespace.\n", functionName, line);
+	status = asynError;
+	break;
+      }
+      memset(line, 0, sizeof(line));
+    }
+    
   }
 
   if (fclose(fptr)) {
@@ -812,14 +824,15 @@ asynStatus p6kController::upload(const char *filename)
   if (count==0) {
     asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
               "%s ERROR: Empty file.\n", functionName);
-    return asynError;
+    status = asynError;
   }
 
-  if (poller_ == 0) {
-      startPoller();
-    }
+  if (status != asynSuccess) {
+    setIntegerParam(P6K_C_Config_, 0);
+    callParamCallbacks();
+  }
 
-  return asynSuccess;
+  return status;
 }
 
 
@@ -918,11 +931,11 @@ extern "C" {
  *
  */
 asynStatus p6kCreateController(const char *portName, const char *lowLevelPortName, int lowLevelPortAddress, 
-			       int numAxes, int movingPollPeriod, int idlePollPeriod, int poller)
+			       int numAxes, int movingPollPeriod, int idlePollPeriod)
 {
 
     p6kController *pp6kController
-      = new p6kController(portName, lowLevelPortName, lowLevelPortAddress, numAxes, movingPollPeriod/1000., idlePollPeriod/1000., poller);
+      = new p6kController(portName, lowLevelPortName, lowLevelPortAddress, numAxes, movingPollPeriod/1000., idlePollPeriod/1000.);
     pp6kController = NULL;
 
     return asynSuccess;
@@ -1023,18 +1036,16 @@ static const iocshArg p6kCreateControllerArg2 = {"Low level port address", iocsh
 static const iocshArg p6kCreateControllerArg3 = {"Number of axes", iocshArgInt};
 static const iocshArg p6kCreateControllerArg4 = {"Moving poll rate (ms)", iocshArgInt};
 static const iocshArg p6kCreateControllerArg5 = {"Idle poll rate (ms)", iocshArgInt};
-static const iocshArg p6kCreateControllerArg6 = {"Start Poller (0 or 1)", iocshArgInt};
 static const iocshArg * const p6kCreateControllerArgs[] = {&p6kCreateControllerArg0,
 							    &p6kCreateControllerArg1,
 							    &p6kCreateControllerArg2,
 							    &p6kCreateControllerArg3,
 							    &p6kCreateControllerArg4,
-							    &p6kCreateControllerArg5,
-							    &p6kCreateControllerArg6};
-static const iocshFuncDef configp6kCreateController = {"p6kCreateController", 7, p6kCreateControllerArgs};
+							    &p6kCreateControllerArg5};
+static const iocshFuncDef configp6kCreateController = {"p6kCreateController", 6, p6kCreateControllerArgs};
 static void configp6kCreateControllerCallFunc(const iocshArgBuf *args)
 {
-  p6kCreateController(args[0].sval, args[1].sval, args[2].ival, args[3].ival, args[4].ival, args[5].ival, args[6].ival);
+  p6kCreateController(args[0].sval, args[1].sval, args[2].ival, args[3].ival, args[4].ival, args[5].ival);
 }
 
 

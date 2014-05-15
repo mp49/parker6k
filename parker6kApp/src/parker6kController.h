@@ -25,6 +25,7 @@
 #define P6K_C_CommandString         "P6K_C_COMMAND"
 #define P6K_C_ResponseString        "P6K_C_RESPONSE"
 #define P6K_C_ErrorString           "P6K_C_ERROR"
+#define P6K_C_ConfigString          "P6K_C_CONFIG"
 #define P6K_C_TSS_SystemReadyString "P6K_C_TSS_SYSTEMREADY"
 #define P6K_C_TSS_ProgRunningString "P6K_C_TSS_PROGRUNNING"
 #define P6K_C_TSS_ImmediateString   "P6K_C_TSS_IMMEDIATE"
@@ -82,7 +83,7 @@ class p6kController : public asynMotorController {
 
  public:
   p6kController(const char *portName, const char *lowLevelPortName, int lowLevelPortAddress, int numAxes, double movingPollPeriod, 
-		double idlePollPeriod, int poller);
+		double idlePollPeriod);
 
   virtual ~p6kController();
 
@@ -125,6 +126,7 @@ class p6kController : public asynMotorController {
   int P6K_A_Error_;
   int P6K_A_MoveError_;
   int P6K_C_Error_;
+  int P6K_C_Config_;
   int P6K_A_DelayTime_;
   int P6K_A_AutoDriveEnable_;
   int P6K_A_AutoDriveEnableDelay_;
@@ -146,7 +148,6 @@ class p6kController : public asynMotorController {
   bool printNextError_;
   double movingPollPeriod_;
   double idlePollPeriod_;
-  int poller_;
   asynStatus lowLevelWriteRead(const char *command, char *response);
   asynStatus trimResponse(char *input, char *output);
   asynStatus errorResponse(char *input, char *output);
