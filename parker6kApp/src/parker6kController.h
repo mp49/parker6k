@@ -26,6 +26,7 @@
 #define P6K_C_ResponseString        "P6K_C_RESPONSE"
 #define P6K_C_ErrorString           "P6K_C_ERROR"
 #define P6K_C_ConfigString          "P6K_C_CONFIG"
+#define P6K_C_LogString             "P6K_C_LOG"
 #define P6K_C_TSS_SystemReadyString "P6K_C_TSS_SYSTEMREADY"
 #define P6K_C_TSS_ProgRunningString "P6K_C_TSS_PROGRUNNING"
 #define P6K_C_TSS_ImmediateString   "P6K_C_TSS_IMMEDIATE"
@@ -127,6 +128,7 @@ class p6kController : public asynMotorController {
   int P6K_A_MoveError_;
   int P6K_C_Error_;
   int P6K_C_Config_;
+  int P6K_C_Log_;
   int P6K_A_DelayTime_;
   int P6K_A_AutoDriveEnable_;
   int P6K_A_AutoDriveEnableDelay_;

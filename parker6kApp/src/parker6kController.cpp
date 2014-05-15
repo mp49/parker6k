@@ -108,6 +108,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_C_ResponseString,         asynParamOctet, &P6K_C_Response_);
   createParam(P6K_C_ErrorString,            asynParamOctet, &P6K_C_Error_);
   createParam(P6K_C_ConfigString,           asynParamInt32, &P6K_C_Config_);
+  createParam(P6K_C_LogString,              asynParamInt32, &P6K_C_Log_);
   createParam(P6K_C_TSS_SystemReadyString,  asynParamInt32, &P6K_C_TSS_SystemReady_);
   createParam(P6K_C_TSS_ProgRunningString,  asynParamInt32, &P6K_C_TSS_ProgRunning_);
   createParam(P6K_C_TSS_ImmediateString,    asynParamInt32, &P6K_C_TSS_Immediate_);
@@ -180,6 +181,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
     paramStatus = ((setStringParam(P6K_C_Response_, " ") == asynSuccess) && paramStatus);
     paramStatus = ((setStringParam(P6K_C_Error_, " ") == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_Config_, 1) == asynSuccess) && paramStatus);
+    paramStatus = ((setIntegerParam(P6K_C_Log_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_SystemReady_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_ProgRunning_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_Immediate_, 0) == asynSuccess) && paramStatus);
@@ -304,6 +306,12 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
   asynPrint(lowLevelPortUser_, ASYN_TRACEIO_DRIVER, "%s: command: %s\n", functionName, command);
   asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s: command: %s\n", functionName, command);   
 
+  int32_t log = 0;
+  getIntegerParam(P6K_C_Log_, &log);
+  if (log != 0) {
+    printf("%s > %s\n", this->portName, command);
+  }
+
   //Make sure the low level port is connected before we attempt comms
   //Use the controller-wide param P6K_C_CommsError_
   //getIntegerParam(P6K_C_CommsError_, &commsError);
@@ -340,6 +348,11 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
 
   asynPrint(lowLevelPortUser_, ASYN_TRACEIO_DRIVER, "%s: response: %s\n", functionName, response); 
   asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s: response: %s\n", functionName, response); 
+
+  if (log != 0) {
+    printf("%s < %s\n", this->portName, response);
+  }
+
 
   if (!stat) {
     return asynError;

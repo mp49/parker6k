@@ -63,6 +63,20 @@ record(bi, "$(S):Config")
 }
 
 # ///
+# /// Log commands sent to the controller (print to standard out)
+# ///
+record(bo, "$(S):Log")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_LOG")
+   field(ZNAM, "No")
+   field(ONAM, "Yes")
+   field(VAL,  "0")
+   info(autosaveFields, "VAL")
+}
+
+# ///
 # /// User command
 # ///
 record(waveform, "$(S):Command")
