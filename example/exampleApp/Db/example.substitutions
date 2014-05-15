@@ -20,8 +20,3 @@ pattern {M, C, PORT, ADDR, TIMEOUT}
         {BL99:Mot:P6K2, BL99:Mot:Controller1, P6K, 2, 1} 
 }
 
-file bo.template
-{
-pattern {S, DTYP, OUT, ZNAM, ONAM, SCAN }
-        {BL99:Mot:Defer, asynInt32, "@asyn(P6K,0)MOTOR_DEFER_MOVES", "GO", "DEFER", Passive }
-}

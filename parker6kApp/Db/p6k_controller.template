@@ -99,6 +99,19 @@ record(waveform, "$(S):Response")
     field(SCAN, "I/O Intr")
 }
 
+# ///
+# /// Deferred moves flag for this controller
+# ///
+record(bo, "$(S):Defer") 
+{
+  field(DESC, "Defer Moves")
+  field(DTYP, "asynInt32")
+  field(OUT, "@asyn($(PORT),$(ADDR),$(TIMEOUT))MOTOR_DEFER_MOVES")
+  field(SCAN, "Passive")
+  field(ZNAM, "GO")
+  field(ONAM, "DEFER")
+  field(VAL, "0")
+}
 
 ##################################################
 # General purpose Asyn record
