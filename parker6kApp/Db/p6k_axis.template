@@ -7,6 +7,7 @@
 # 
 # Macros:
 # M - base PV name (should match the motor record)
+# C - PV name of controller records
 # PORT - asyn motor driver port
 # ADDR - asyn address (ie. axis number)
 # TIMEOUT - asyn timeout (eg 1)
@@ -15,6 +16,20 @@
 # May 2014
 #
 #######################################################
+
+# ///
+# /// Disable the motor records if we are in comms error.
+# /// This will prevent changes while the driver is unable to
+# /// talk to the controller. 
+# ///
+record(calcout, "$(M):CommsDisable")
+{
+   field(INPA, "$(C):CommsError CP")
+   field(CALC, "A==1")
+   field(DOPT, "Use CALC")
+   field(OOPT, "On Change")
+   field(OUT, "$(M):SDIS.B PP")
+}
 
 # ///
 # /// Time to delay the end of move flag. This has a resolution
