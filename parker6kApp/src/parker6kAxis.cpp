@@ -452,13 +452,86 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
 asynStatus p6kAxis::home(double min_velocity, double max_velocity, double acceleration, int32_t forwards)
 {
   asynStatus status = asynError;
-  //  char command[P6K_MAXBUF] = {0};
-  //char response[P6K_MAXBUF] = {0};
+  char command[P6K_MAXBUF] = {0};
+  char response[P6K_MAXBUF] = {0};
   static const char *functionName = "p6kAxis::home";
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
-  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, "%s Homing not implemented yet.\n", functionName);
+  int32_t axisDef = 0;
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_AXSDEF_, &axisDef);
+
+  int32_t maxDigits = 0;
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_MaxDigits_, &maxDigits);
+
+  //Read DRES and ERES for velocity and accel scaling
+  int32_t dres = 0;
+  int32_t eres = 0;
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_DRES_, &dres);
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_ERES_, &eres);
+  int32_t scale = 0;
+  if (axisDef == 0) {
+    scale = eres;
+  } else {
+    scale = dres;
+  }
+
+  int32_t auto_drive_enable = 0;
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_AutoDriveEnable_, &auto_drive_enable);
+  if (auto_drive_enable == 1) {
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
+	      "%s Auto drive enable\n", functionName);
+    if (setClosedLoop(true) != asynSuccess) {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+		"%s ERROR: Failed to enable axis \n", functionName, axisNo_);
+      setStringParam(pC_->P6K_A_MoveError_, "ERROR: Failed to enable drive");
+      return asynError;
+    }
+  }
+
+  int32_t drive_enable_delay = 0;
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_AutoDriveEnableDelay_, &drive_enable_delay);
+  if (drive_enable_delay > 0) {
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
+	      "%s Auto drive enable delay: %d\n", functionName, drive_enable_delay);
+    epicsThreadSleep(static_cast<double>(drive_enable_delay) / 1000.0);
+  }
+
+  if (max_velocity != 0) {
+    epicsFloat64 vel = max_velocity / scale;
+    snprintf(command, P6K_MAXBUF, "%dHOMV%.*f", axisNo_, maxDigits, vel);
+    status = pC_->lowLevelWriteRead(command, response);
+    memset(command, 0, sizeof(command));
+  }
+
+  if (acceleration != 0) {
+    if (max_velocity != 0) {
+      epicsFloat64 accel = acceleration / scale;
+      snprintf(command, P6K_MAXBUF, "%dHOMA%.*f", axisNo_, maxDigits, accel);
+      status = pC_->lowLevelWriteRead(command, response);
+      memset(command, 0, sizeof(command));
+      
+      //Set S curve parameters too
+      snprintf(command, P6K_MAXBUF, "%dHOMAA%.*f", axisNo_, maxDigits, accel/2);
+      status = pC_->lowLevelWriteRead(command, response);
+      memset(command, 0, sizeof(command));
+
+      snprintf(command, P6K_MAXBUF, "%dHOMAD%.*f", axisNo_, maxDigits, accel);
+      status = pC_->lowLevelWriteRead(command, response);
+      memset(command, 0, sizeof(command));
+
+      snprintf(command, P6K_MAXBUF, "%dHOMADA%.*f", axisNo_, maxDigits, accel);
+      status = pC_->lowLevelWriteRead(command, response);
+      memset(command, 0, sizeof(command));
+    }
+  }
+
+  cout << "home dir: " << (forwards>0?1:0) << endl;
+
+  snprintf(command, P6K_MAXBUF, "%dHOM%d", axisNo_, (forwards>0?1:0));
+  status = pC_->lowLevelWriteRead(command, response);
+  memset(command, 0, sizeof(command));
+
 
   return status;
 }
