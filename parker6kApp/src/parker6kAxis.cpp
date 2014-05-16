@@ -50,11 +50,11 @@ const epicsUInt32 p6kAxis::P6K_TAS_GOWHENPEND_    = 31;
 const epicsUInt32 p6kAxis::P6K_TAS_MOVEPEND_      = 33; 
 const epicsUInt32 p6kAxis::P6K_TAS_PREEMPT_       = 36;
 
-const epicsUInt32 p6kAxis::P6K_STEPPER_       = 0;
+const epicsUInt32 p6kAxis::P6K_STEPPER_     = 0;
 const epicsUInt32 p6kAxis::P6K_SERVO_       = 1;
 
-const epicsUInt32 p6kAxis::P6K_LIM_DISABLE_       = 0;
-const epicsUInt32 p6kAxis::P6K_LIM_ENABLE_       = 3;
+const epicsUInt32 p6kAxis::P6K_LIM_DISABLE_ = 0;
+const epicsUInt32 p6kAxis::P6K_LIM_ENABLE_  = 3;
 
 static void shutdownCallback(void *pPvt)
 {
@@ -117,7 +117,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   bool paramStatus = true;
   paramStatus = ((setIntegerParam(pC_->P6K_A_DRES_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_ERES_, 0) == asynSuccess) && paramStatus);
-  paramStatus = ((setIntegerParam(pC_->P6K_A_MaxDigits_, 2) == asynSuccess) && paramStatus);
+  paramStatus = ((setIntegerParam(pC_->P6K_A_MaxDigits_, pC_->P6K_MAX_DIGITS_) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->motorStatusHasEncoder_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->motorStatusGainSupport_, 1) == asynSuccess) && paramStatus);
   paramStatus = ((setStringParam(pC_->P6K_A_Command_, " ") == asynSuccess) && paramStatus);
@@ -339,58 +339,28 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
-  int32_t axisDef = 0;
-  pC_->getIntegerParam(axisNo_, pC_->P6K_A_AXSDEF_, &axisDef);
-
   int32_t maxDigits = 0;
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_MaxDigits_, &maxDigits);
 
-  //Read DRES and ERES for velocity and accel scaling
-  int32_t dres = 0;
-  int32_t eres = 0;
-  pC_->getIntegerParam(axisNo_, pC_->P6K_A_DRES_, &dres);
-  pC_->getIntegerParam(axisNo_, pC_->P6K_A_ERES_, &eres);
-  int32_t scale = 0;
-  if (axisDef == 0) {
-    scale = eres;
-  } else {
-    scale = dres;
-  }
-  
-  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s DRES=%d, ERES=%d\n", functionName, dres, eres);
-  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s scale=%d\n", functionName, scale);
-
-  int32_t auto_drive_enable = 0;
-  pC_->getIntegerParam(axisNo_, pC_->P6K_A_AutoDriveEnable_, &auto_drive_enable);
-  if (auto_drive_enable == 1) {
-    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
-	      "%s Auto drive enable\n", functionName);
-    if (setClosedLoop(true) != asynSuccess) {
-      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
-		"%s ERROR: Failed to enable axis \n", functionName, axisNo_);
-      setStringParam(pC_->P6K_A_MoveError_, "ERROR: Failed to enable drive");
-      return asynError;
-    }
+  int32_t scale = getScaleFactor();
+  if (scale == 0) {
+    return asynError;
   }
 
-  int32_t drive_enable_delay = 0;
-  pC_->getIntegerParam(axisNo_, pC_->P6K_A_AutoDriveEnableDelay_, &drive_enable_delay);
-  if (drive_enable_delay > 0) {
-    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
-	      "%s Auto drive enable delay: %d\n", functionName, drive_enable_delay);
-    epicsThreadSleep(static_cast<double>(drive_enable_delay) / 1000.0);
+  if (autoDriveEnable() != asynSuccess) {
+    return asynError;
   }
 
   if (relative > 1) {
     relative = 1;
   }
-  snprintf(command, P6K_MAXBUF, "%dMA%d", axisNo_, !relative);
+  snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_MA, !relative);
   status = pC_->lowLevelWriteRead(command, response);
   memset(command, 0, sizeof(command));
 
   if (max_velocity != 0) {
     epicsFloat64 vel = max_velocity / scale;
-    snprintf(command, P6K_MAXBUF, "%dV%.*f", axisNo_, maxDigits, vel);
+    snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_V, maxDigits, vel);
     status = pC_->lowLevelWriteRead(command, response);
     memset(command, 0, sizeof(command));
   }
@@ -398,20 +368,20 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
   if (acceleration != 0) {
     if (max_velocity != 0) {
       epicsFloat64 accel = acceleration / scale;
-      snprintf(command, P6K_MAXBUF, "%dA%.*f", axisNo_, maxDigits, accel);
+      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_A, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
       
       //Set S curve parameters too
-      snprintf(command, P6K_MAXBUF, "%dAA%.*f", axisNo_, maxDigits, accel/2);
+      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AA, maxDigits, accel/2);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
 
-      snprintf(command, P6K_MAXBUF, "%dAD%.*f", axisNo_, maxDigits, accel);
+      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AD, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
 
-      snprintf(command, P6K_MAXBUF, "%dADA%.*f", axisNo_, maxDigits, accel);
+      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_ADA, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
     }
@@ -421,10 +391,10 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
   //In case we cancel the deferred move.
   epicsUInt32 pos = static_cast<epicsUInt32>(position);
   if (pC_->movesDeferred_ == 0) {
-    snprintf(command, P6K_MAXBUF, "%dD%d", axisNo_, pos);
+    snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_D, pos);
     status = pC_->lowLevelWriteRead(command, response);
     memset(command, 0, sizeof(command));
-    snprintf(command, P6K_MAXBUF, "%dGO", axisNo_);
+    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_GO);
   } else { /* deferred moves */
     deferredPosition_ = pos;
     deferredMove_ = 1;
@@ -445,24 +415,13 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
   return status;
 }
 
-
 /**
- * See asynMotorAxis::home
+ * Determin the scale factor to use for velocity and accel scaling 
+ * which is required by the controller.
  */ 
-asynStatus p6kAxis::home(double min_velocity, double max_velocity, double acceleration, int32_t forwards)
+int32_t p6kAxis::getScaleFactor(void)
 {
-  asynStatus status = asynError;
-  char command[P6K_MAXBUF] = {0};
-  char response[P6K_MAXBUF] = {0};
-  static const char *functionName = "p6kAxis::home";
-
-  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
-
-  int32_t axisDef = 0;
-  pC_->getIntegerParam(axisNo_, pC_->P6K_A_AXSDEF_, &axisDef);
-
-  int32_t maxDigits = 0;
-  pC_->getIntegerParam(axisNo_, pC_->P6K_A_MaxDigits_, &maxDigits);
+  static const char *functionName = "p6kAxis::getScaleFactor";
 
   //Read DRES and ERES for velocity and accel scaling
   int32_t dres = 0;
@@ -470,11 +429,25 @@ asynStatus p6kAxis::home(double min_velocity, double max_velocity, double accele
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_DRES_, &dres);
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_ERES_, &eres);
   int32_t scale = 0;
-  if (axisDef == 0) {
+  if (driveType_ == 0) {
     scale = eres;
   } else {
     scale = dres;
   }
+  
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s DRES=%d, ERES=%d\n", functionName, dres, eres);
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s scale=%d\n", functionName, scale);
+
+  return scale;
+}
+
+
+/**
+ * Deal with automatic drive enable
+ */
+asynStatus p6kAxis::autoDriveEnable(void)
+{
+  static const char *functionName = "p6kAxis::autoDriveEnable";
 
   int32_t auto_drive_enable = 0;
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_AutoDriveEnable_, &auto_drive_enable);
@@ -497,9 +470,37 @@ asynStatus p6kAxis::home(double min_velocity, double max_velocity, double accele
     epicsThreadSleep(static_cast<double>(drive_enable_delay) / 1000.0);
   }
 
+  return asynSuccess;
+}
+
+
+/**
+ * See asynMotorAxis::home
+ */ 
+asynStatus p6kAxis::home(double min_velocity, double max_velocity, double acceleration, int32_t forwards)
+{
+  asynStatus status = asynError;
+  char command[P6K_MAXBUF] = {0};
+  char response[P6K_MAXBUF] = {0};
+  static const char *functionName = "p6kAxis::home";
+
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
+
+  int32_t maxDigits = 0;
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_MaxDigits_, &maxDigits);
+
+  int32_t scale = getScaleFactor();
+  if (scale == 0) {
+    return asynError;
+  }
+
+  if (autoDriveEnable() != asynSuccess) {
+    return asynError;
+  }
+
   if (max_velocity != 0) {
     epicsFloat64 vel = max_velocity / scale;
-    snprintf(command, P6K_MAXBUF, "%dHOMV%.*f", axisNo_, maxDigits, vel);
+    snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMV, maxDigits, vel);
     status = pC_->lowLevelWriteRead(command, response);
     memset(command, 0, sizeof(command));
   }
@@ -507,28 +508,26 @@ asynStatus p6kAxis::home(double min_velocity, double max_velocity, double accele
   if (acceleration != 0) {
     if (max_velocity != 0) {
       epicsFloat64 accel = acceleration / scale;
-      snprintf(command, P6K_MAXBUF, "%dHOMA%.*f", axisNo_, maxDigits, accel);
+      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMA, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
       
       //Set S curve parameters too
-      snprintf(command, P6K_MAXBUF, "%dHOMAA%.*f", axisNo_, maxDigits, accel/2);
+      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMAA, maxDigits, accel/2);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
 
-      snprintf(command, P6K_MAXBUF, "%dHOMAD%.*f", axisNo_, maxDigits, accel);
+      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMAD, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
 
-      snprintf(command, P6K_MAXBUF, "%dHOMADA%.*f", axisNo_, maxDigits, accel);
+      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMADA, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
     }
   }
 
-  cout << "home dir: " << (forwards>0?1:0) << endl;
-
-  snprintf(command, P6K_MAXBUF, "%dHOM%d", axisNo_, (forwards>0?1:0));
+  snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_HOM, (forwards>0?0:1));
   status = pC_->lowLevelWriteRead(command, response);
   memset(command, 0, sizeof(command));
 
@@ -573,12 +572,12 @@ asynStatus p6kAxis::setPosition(double position)
 	    "%s: Set axis %d on controller %s to position %d\n", 
 	    functionName, axisNo_, pC_->portName, pos);
 
-  snprintf(command, P6K_MAXBUF, "!%dS", axisNo_);
+  snprintf(command, P6K_MAXBUF, "!%d%s", axisNo_, P6K_CMD_S);
   stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
   memset(command, 0, sizeof(command));
 
   if (stat) {
-    snprintf(command, P6K_MAXBUF, "%dPSET%d", axisNo_, pos);
+    snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_PSET, pos);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
   memset(command, 0, sizeof(command));
   }
@@ -594,7 +593,7 @@ asynStatus p6kAxis::setPosition(double position)
 	      "%s: Set encoder axis %d on controller %s to position %d, encRatio: %f\n", 
 	      functionName, axisNo_, pC_->portName, pos, encRatio);
     
-    snprintf(command, P6K_MAXBUF, "%dPESET%d", axisNo_, encpos);
+    snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_PESET, encpos);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
     memset(command, 0, sizeof(command));
   }
@@ -627,7 +626,7 @@ asynStatus p6kAxis::stop(double acceleration)
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
-  snprintf(command, P6K_MAXBUF, "!%dS", axisNo_);
+  snprintf(command, P6K_MAXBUF, "!%d%s", axisNo_, P6K_CMD_S);
   status = pC_->lowLevelWriteRead(command, response);
 
   deferredMove_ = 0;
@@ -746,11 +745,11 @@ asynStatus p6kAxis::setClosedLoop(bool closedLoop)
     if (closedLoop) {
       asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
 		"%s Drive enable on axis %d\n", functionName, axisNo_);
-      sprintf(command, "%dDRIVE1",  axisNo_);
+      sprintf(command, "%d%s1",  axisNo_, P6K_CMD_DRIVE);
     } else {
       asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
 		"%s Drive disable on axis %d\n", functionName, axisNo_);
-      sprintf(command, "%dDRIVE0",  axisNo_);
+      sprintf(command, "%d%s0",  axisNo_, P6K_CMD_DRIVE);
     }
     status = pC_->lowLevelWriteRead(command, response);
     

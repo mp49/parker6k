@@ -65,6 +65,12 @@
 #define P6K_CMD_ENCCNT   "ENCCNT"
 #define P6K_CMD_ERES     "ERES"
 #define P6K_CMD_GO       "GO"
+#define P6K_CMD_HOM      "HOM"
+#define P6K_CMD_HOMA     "HOMA"
+#define P6K_CMD_HOMAA    "HOMAA"
+#define P6K_CMD_HOMAD    "HOMAD"
+#define P6K_CMD_HOMADA   "HOMADA"
+#define P6K_CMD_HOMV     "HOMV"
 #define P6K_CMD_LH       "LH"
 #define P6K_CMD_LS       "LS"
 #define P6K_CMD_LSNEG    "LSNEG"
@@ -165,6 +171,7 @@ class p6kController : public asynMotorController {
   static const epicsUInt32 P6K_OK_;
   static const epicsUInt32 P6K_ERROR_;
   static const epicsUInt32 P6K_ERROR_PRINT_TIME_;
+  static const epicsUInt32 P6K_MAX_DIGITS_;
 
   static const char * P6K_ASYN_IEOS_;
   static const char * P6K_ASYN_OEOS_;

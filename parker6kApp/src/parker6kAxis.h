@@ -50,7 +50,8 @@ class p6kAxis : public asynMotorAxis
   asynStatus readIntParam(const char *cmd, epicsUInt32 param, uint32_t *val);
   asynStatus readDoubleParam(const char *cmd, epicsUInt32 param, double *val);
   void printAxisParams(void);
-
+  asynStatus autoDriveEnable(void);
+  int32_t getScaleFactor(void);
 
   double setpointPosition_;
   double encoderPosition_;

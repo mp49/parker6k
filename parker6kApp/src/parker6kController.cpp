@@ -41,6 +41,7 @@ const epicsUInt32 p6kController::P6K_ERROR_PRINT_TIME_ = 1; //seconds (this shou
 const epicsUInt32 p6kController::P6K_FORCED_FAST_POLLS_ = 10;
 const epicsUInt32 p6kController::P6K_OK_ = 0;
 const epicsUInt32 p6kController::P6K_ERROR_ = 1;
+const epicsUInt32 p6kController::P6K_MAX_DIGITS_ = 2;
 
 const char * p6kController::P6K_ASYN_IEOS_ = ">";
 const char * p6kController::P6K_ASYN_OEOS_ = "\n";
@@ -70,7 +71,8 @@ extern "C" {
 /**
  * p6kController constructor.
  * @param portName The Asyn port name to use (that the motor record connects to).
- * @param lowLevelPortName The name of the low level port that has already been created, to enable comms to the controller.
+ * @param lowLevelPortName The name of the low level port that has already been 
+ *        created, to enable comms to the controller.
  * @param lowLevelPortAddress The asyn address for the low level port
  * @param numAxes The number of axes on the controller (1 based)
  * @param movingPollPeriod The time (in milliseconds) between polling when axes are moving
@@ -145,9 +147,8 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   // We will need to deal with the rest in p6kController::lowLevelWriteRead
   // Error responses are handled differently, and unfortunately rely on a asyn timeout.
   printf("%s: Connect to low level Asyn port.\n", functionName);
-  //const char * ieos = P6K_ASYN_IEOS_;
-  //const char * oeos = P6K_ASYN_OEOS_;
-  if (lowLevelPortConnect(lowLevelPortName, lowLevelPortAddress, &lowLevelPortUser_, P6K_ASYN_IEOS_, P6K_ASYN_OEOS_) != asynSuccess) {
+  if (lowLevelPortConnect(lowLevelPortName, lowLevelPortAddress, &lowLevelPortUser_, 
+			  P6K_ASYN_IEOS_, P6K_ASYN_OEOS_) != asynSuccess) {
     printf("%s: Failed to connect to low level asynOctetSyncIO port %s\n", functionName, lowLevelPortName);
     setIntegerParam(P6K_C_CommsError_, P6K_ERROR_);
   } else {
@@ -161,7 +162,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   snprintf(command, P6K_MAXBUF_, "%s0", P6K_CMD_ECHO);
   if (lowLevelWriteRead(command, response) != asynSuccess) {
     asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
-	      "%s: Turning off %s failed.\n", functionName, P6K_CMD_ECHO);
+	      "%s: Setting %s failed.\n", functionName, P6K_CMD_ECHO);
     setStringParam(P6K_C_Error_, "Startup failed. Not starting poller.");
   } else {
 
@@ -191,7 +192,9 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
     callParamCallbacks();
 
     if (!paramStatus) {
-      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "%s Unable To Set Driver Parameters In Constructor.\n", functionName);
+      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		"%s Unable To Set Driver Parameters In Constructor.\n", 
+		functionName);
     }
 
   }
@@ -216,7 +219,9 @@ p6kController::~p6kController(void)
  * @param outputEos The output EOS character
  * @return asynStatus  
  */
-asynStatus p6kController::lowLevelPortConnect(const char *port, int addr, asynUser **ppasynUser, const char *inputEos, const char *outputEos)
+asynStatus p6kController::lowLevelPortConnect(const char *port, int addr, 
+					      asynUser **ppasynUser, const char *inputEos, 
+					      const char *outputEos)
 {
   asynStatus status = asynSuccess;
  
@@ -274,7 +279,8 @@ asynStatus p6kController::printConnectedStatus()
 		"p6kController: Error calling pasynManager::isConnected.\n");
       return status;
       } else {
-	asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s isConnected: %d\n", functionName, asynManagerConnected);
+	asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s isConnected: %d\n", 
+		  functionName, asynManagerConnected);
     }
   }
   return status;
@@ -287,7 +293,6 @@ asynStatus p6kController::printConnectedStatus()
  */
 asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
 {
-  //asynStatus status = asynSuccess;
   bool stat = true;
   int32_t eomReason = 0;
   size_t nwrite = 0;
@@ -353,7 +358,6 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
     printf("%s < %s\n", this->portName, response);
   }
 
-
   if (!stat) {
     return asynError;
   }
@@ -378,6 +382,10 @@ asynStatus p6kController::errorResponse(char *input, char *output)
   static const char *functionName = "p6kController::errorResponse";
 
   asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
+
+  if (input == NULL) {
+    return asynError;
+  }
 
   char *pTrailer = strstr(input, trailer);
 
@@ -415,6 +423,10 @@ asynStatus p6kController::trimResponse(char *input, char *output)
 
   asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
+  if (input == NULL) {
+    return asynError;
+  }
+
   char *pTrailer = strstr(input, trailer);
   if (pTrailer != NULL) {
     *pTrailer = '\0';
@@ -424,7 +436,8 @@ asynStatus p6kController::trimResponse(char *input, char *output)
     if (pTrailer != NULL) {
       *pTrailer = '\0';
     } else {
-      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "%s Could not find correct trailer.\n", functionName);
+      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		"%s Could not find correct trailer.\n", functionName);
       status = asynError;
     }
   }
@@ -478,8 +491,6 @@ asynStatus p6kController::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
   int function = pasynUser->reason;
   bool status = true;
   p6kAxis *pAxis = NULL;
-  char command[P6K_MAXBUF_] = {0};
-  char response[P6K_MAXBUF_] = {0};
 	
   static const char *functionName = "p6kController::writeFloat64";
 
@@ -494,12 +505,13 @@ asynStatus p6kController::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
   status = (pAxis->setDoubleParam(function, value) == asynSuccess) && status;
 
   if (function == P6K_A_DelayTime_) {
-    cout << "Setting delay time to " << value << endl;
+    if (value < 0.0) {
+      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		"%s: ERROR: forcing done moving delay time to be >=0. Axis %d\n", 
+		functionName, pAxis->axisNo_);
+      value = 0.0;
+    }
   }
-
-  //if (command[0] != 0 && status) {
-  //  status = (lowLevelWriteRead(command, response) == asynSuccess) && status;
-  //}
 
   //Call base class method. This will handle callCallbacks even if the function was handled here.
   status = (asynMotorController::writeFloat64(pasynUser, value) == asynSuccess) && status;
@@ -524,8 +536,6 @@ asynStatus p6kController::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
 asynStatus p6kController::writeInt32(asynUser *pasynUser, epicsInt32 value)
 {
   int function = pasynUser->reason;
-  //char command[P6K_MAXBUF_] = {0};
-  //char response[P6K_MAXBUF_] = {0};
   bool status = true;
   p6kAxis *pAxis = NULL;
   static const char *functionName = "p6kController::writeInt32";
@@ -538,7 +548,6 @@ asynStatus p6kController::writeInt32(asynUser *pasynUser, epicsInt32 value)
   } 
 
   if (function == P6K_A_AutoDriveEnableDelay_) {
-    cout << "Setting drive enable delay: " << value << endl;
     if (value < 0) {
       asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
 		"%s: ERROR: forcing drive enable to be >=0. Axis %d\n", 
@@ -723,12 +732,9 @@ asynStatus p6kController::poll()
   snprintf(command, P6K_MAXBUF, "%s", P6K_CMD_TSS);
   stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
   if (stat) {
-    //printf("  Status response: %s\n", response);
     nvals = sscanf(response, P6K_CMD_TSS"%s", stringVal);
   }
   memset(command, 0, sizeof(command));
-  
-  //printf("  Status string: %s\n", stringVal);
    
   if (stat) {
     stat = (setIntegerParam(P6K_C_TSS_SystemReady_, (stringVal[P6K_TSS_SYSTEMREADY_] == P6K_ON_)) == asynSuccess) && stat;
@@ -761,7 +767,7 @@ asynStatus p6kController::poll()
 
 /**
  * Write a configuration file to the controller. This function reads a ASCII file
- * that should only contain P6K commands in it, terminated by a newline. 
+ * that should only contain P6K commands terminated by a newline. 
  * Any commands with comments or whitespace are rejected. 
  * I kept this simple to leave open the possibility of
  * porting to other platforms.
@@ -880,10 +886,7 @@ asynStatus p6kController::setDeferredMoves(bool deferMoves)
     pAxis = getAxis(axis);
     if (pAxis != NULL) {
       if (pAxis->deferredMove_) {
-	cout << "axis: " << axis << endl;
-	cout << "position: " << pAxis->deferredPosition_ << endl;
 	snprintf(command, P6K_MAXBUF, "%dD%d", pAxis->axisNo_, pAxis->deferredPosition_);
-	cout << "command: " << command << endl;
 	stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
 	if (axis <= P6K_MAXAXES_) {
 	  move[axis] = 1;
@@ -893,7 +896,7 @@ asynStatus p6kController::setDeferredMoves(bool deferMoves)
     }
   }
 
-  //If any commands failed, don't execute, cancle deferred move and return
+  //If any commands failed, don't execute, cancel deferred move and return
   if (!stat) {
     asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
 	      "%s ERROR Sending Deferred Move Positions.\n", functionName);
@@ -901,10 +904,11 @@ asynStatus p6kController::setDeferredMoves(bool deferMoves)
   } else {
   
     //Execute the deferred move
-    snprintf(command, P6K_MAXBUF, "GO%d%d%d%d%d%d%d%d", move[1],move[2],move[3],move[4],move[5],move[6],move[7],move[8]);
-    cout << "command: " << command << endl;
+    snprintf(command, P6K_MAXBUF, "GO%d%d%d%d%d%d%d%d", 
+	     move[1],move[2],move[3],move[4],move[5],move[6],move[7],move[8]);
     if (lowLevelWriteRead(command, response) != asynSuccess) {
-      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "%s ERROR Sending Deferred Move Command.\n", functionName);
+      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		"%s ERROR Sending Deferred Move Command.\n", functionName);
       setStringParam(P6K_C_Error_, "ERROR: Deferred Move Failed");
       status = asynError;
     } else {
@@ -943,12 +947,14 @@ extern "C" {
  * See p6kController::p6kController.
  *
  */
-asynStatus p6kCreateController(const char *portName, const char *lowLevelPortName, int lowLevelPortAddress, 
-			       int numAxes, int movingPollPeriod, int idlePollPeriod)
+asynStatus p6kCreateController(const char *portName, const char *lowLevelPortName, 
+			       int lowLevelPortAddress, int numAxes, 
+			       int movingPollPeriod, int idlePollPeriod)
 {
 
     p6kController *pp6kController
-      = new p6kController(portName, lowLevelPortName, lowLevelPortAddress, numAxes, movingPollPeriod/1000., idlePollPeriod/1000.);
+      = new p6kController(portName, lowLevelPortName, lowLevelPortAddress, 
+			  numAxes, movingPollPeriod/1000., idlePollPeriod/1000.);
     pp6kController = NULL;
 
     return asynSuccess;
@@ -959,8 +965,8 @@ asynStatus p6kCreateController(const char *portName, const char *lowLevelPortNam
  * See p6kAxis::p6kAxis.
  *
  */
-asynStatus p6kCreateAxis(const char *p6kName,         /* specify which controller by port name */
-			  int axis)                    /* axis number (start from 1). */
+asynStatus p6kCreateAxis(const char *p6kName,   //specify which controller by port name
+			 int axis)               //axis number (start from 1).
 {
   p6kController *pC;
   p6kAxis *pAxis;
@@ -975,7 +981,8 @@ asynStatus p6kCreateAxis(const char *p6kName,         /* specify which controlle
   }
 
   if (axis == 0) {
-    printf("%s::%s: ERROR Axis Number 0 Not Allowed. This Asyn Address Is Reserved For Controller Specific Parameters.\n",
+    printf("%s::%s: ERROR Axis Number 0 Not Allowed. "
+	   "This Asyn Address Is Reserved For Controller Specific Parameters.\n",
 	   driverName, functionName);
     return asynError;
   }
@@ -1019,6 +1026,11 @@ asynStatus p6kCreateAxes(const char *p6kName,
   return asynSuccess;
 }
 
+/**
+ * Wrapper for p6kController::upload.
+ * @param p6kName Controller port name
+ * @param filename The full filename and path to the config file.
+ */
 asynStatus p6kUpload(const char *p6kName, const char *filename)
 {
   asynStatus status = asynError; 
