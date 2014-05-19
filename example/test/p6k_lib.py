@@ -70,12 +70,55 @@ class p6k_lib(object):
             return self.__g.FAIL
 
 
+    def setPosition(self, motor, position, timeout):
+        """
+        Set position on motor and check it worked ok.
+        """
+        
+        _set = motor + ".SET"
+        _rbv = motor + ".RBV"
+        _dval = motor + ".DVAL"
+        _off = motor + ".OFF"
+
+        offset = caget(_off)
+
+        caput(_set, 1, wait=True, timeout=timeout)
+        caput(_dval, position, wait=True, timeout=timeout)
+        caput(_off, offset, wait=True, timeout=timeout)
+        caput(_set, 0, wait=True, timeout=timeout)
+
+        if (self.postMoveCheck(motor) != self.__g.SUCCESS):
+            return self.__g.FAIL
+
+        try:
+            self.verifyPosition(motor, position+offset)
+        except Exception as e:
+            print str(e)
+            return self.__g.FAIL
+
     def checkInitRecord(self, motor):
         """
         Check the record for correct state at start of test.
         """
         self.postMoveCheck()
 
+
+    def verifyPosition(self, motor, position):
+        """
+        Verify that field == reference.
+        """
+        _rdbd = motor + ".RDBD"
+        deadband = caget(_rdbd)
+        _rbv = motor + ".RBV"
+        current_pos = caget(_rbv)
+        
+        if ((current_pos < position-deadband) or (current_pos > position+deadband)):
+            print "ERROR: final_pos out of deadband."
+            msg = (motor + " " + str(position) + " " + str(timeout) + " " 
+                   + str(current_pos) + " " + str(deadband))
+            raise Exception(__name__ + msg)
+        
+        return self.__g.SUCCESS
 
     def verifyField(self, pv, field, reference):
         """
