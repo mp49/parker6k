@@ -1,14 +1,37 @@
 #!/usr/bin/python
 
+"""
+Author: Matt Pearson
+Date: May 2014
+
+Description: Class to hold utility functions
+"""
+
 import sys
 
 import cothread
 from cothread.catools import *
 
+from p6k_globals import p6k_globals
+
 class p6k_lib(object):
     """
     Library of useful test functions for parker6k applications
     """
+
+    __g = p6k_globals()
+
+    def testComplete(self, fail):
+        """
+        Function to be called at end of test
+        fail = true or false
+        """
+        if not fail:
+            print "Test Complete"
+            return self.__g.SUCCESS
+        else:
+            print "Test Failed"
+            return self.__g.FAIL
 
 
     def move(self, motor, position, timeout):
@@ -24,7 +47,7 @@ class p6k_lib(object):
             print str(e)
             print "ERROR: caput failed."
             print (motor + " pos:" + str(position) + " timeout:" + str(timeout))
-            return 1
+            return self.__g.FAIL
         
         rdbd = motor + ".RDBD"
         rbv = motor + ".RBV"
@@ -32,11 +55,69 @@ class p6k_lib(object):
         final_pos = caget(rbv)
         deadband = caget(rdbd)
 
+        success = True
+
         if ((final_pos < position-deadband) or (final_pos > position+deadband)):
             print "ERROR: final_pos out of deadband."
             print (motor + " " + str(position) + " " + str(timeout) + " " 
                    + str(final_pos) + " " + str(deadband))
-            return 1
+            success = False
 
-        return 0
+        if (success):
+            return self.postMoveCheck(motor)
+        else:
+            self.postMoveCheck(motor)
+            return self.__g.FAIL
+
+
+    def checkInitRecord(self, motor):
+        """
+        Check the record for correct state at start of test.
+        """
+        self.postMoveCheck()
+
+
+    def verifyField(self, pv, field, reference):
+        """
+        Verify that field == reference.
+        """
+        full_pv = pv + "." + field
+        if (caget(full_pv) != reference):
+            msg = "ERROR: " + full_pv + " not equal to " + str(reference)
+            raise Exception(__name__ + msg)
+
+        return self.__g.SUCCESS
+
+
+    def postMoveCheck(self, motor):
+        """
+        Check the motor for the correct state at the end of move.
+        """
+        
+        DMOV = 1
+        MOVN = 0
+        STAT = 0
+        SEVR = 0
+        LVIO = 0
+        MISS = 0
+        RHLS = 0
+        RLLS = 0
+
+        try:
+            self.verifyField(motor, "DMOV", DMOV)
+            self.verifyField(motor, "MOVN", MOVN)
+            self.verifyField(motor, "STAT", STAT)
+            self.verifyField(motor, "SEVR", SEVR)
+            self.verifyField(motor, "LVIO", LVIO)
+            self.verifyField(motor, "MISS", MISS)
+            self.verifyField(motor, "RHLS", RHLS)
+            self.verifyField(motor, "RLLS", RLLS)
+        except Exception as e:
+            print str(e)
+            return self.__g.FAIL
+
+        return self.__g.SUCCESS
+            
+        
+
 

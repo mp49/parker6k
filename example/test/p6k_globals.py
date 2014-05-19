@@ -19,8 +19,16 @@ class p6k_globals(object):
     def __init__(self):
         pass
 
-    def getMotor(self):
-        return "BL99:Mot:P6K1"
+    def getTimeout(self):
+        return 100
 
-    MOTOR = property(getMotor, doc="Motor PV name")
+    def getFail(self):
+        return 1
+
+    def getSuccess(self):
+        return 0
+
+    TIMEOUT = property(getTimeout, doc="Put callback timeout")
+    FAIL = property(getFail, doc="Fail return value")
+    SUCCESS = property(getSuccess, doc="Success return value")
 
