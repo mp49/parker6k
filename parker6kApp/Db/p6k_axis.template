@@ -119,10 +119,18 @@ record(longin, "$(M):AutoEnableDelay_RBV")
 record(bo, "$(M):AutoDisable")
 {
    field(PINI, "YES")
-   field(ZNAM, "Yes")
-   field(ONAM, "No")
-   field(VAL,  "1")
+   field(ZNAM, "No")
+   field(ONAM, "Yes")
+   field(VAL,  "0")
    info(autosaveFields, "VAL")
+   field(FLNK, "$(M):AutoDisableSDIS")
+}
+
+record(calc, "$(M):AutoDisableSDIS")
+{
+   field(INPA, "$(M):AutoDisable.VAL")
+   field(CALC, "!A")
+   field(FLNK, "$(M):AutoDisableAction")
 }
 
 # ///
@@ -149,7 +157,7 @@ record(calcout, "$(M):AutoDisableAction")
    field(DOPT, "Use OCAL")
    field(OCAL, "0")
    field(OUT, "$(M).CNEN PP")
-   field(SDIS, "$(M):AutoDisable")     
+   field(SDIS, "$(M):AutoDisableSDIS")     
 }
 
 # ///
