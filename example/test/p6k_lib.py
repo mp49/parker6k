@@ -114,7 +114,7 @@ class p6k_lib(object):
         
         if ((current_pos < position-deadband) or (current_pos > position+deadband)):
             print "ERROR: final_pos out of deadband."
-            msg = (motor + " " + str(position) + " " + str(timeout) + " " 
+            msg = (motor + " " + str(position) + " " 
                    + str(current_pos) + " " + str(deadband))
             raise Exception(__name__ + msg)
         
