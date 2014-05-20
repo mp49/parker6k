@@ -38,10 +38,11 @@ record(calcout, "$(M):CommsDisable")
 record(ao, "$(M):DelayTime")
 {
    field(PINI, "YES")
-   field(EGU, "Seconds")
+   field(EGU, "s")
    field(DTYP, "asynFloat64")
    field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_DELAYTIME")
    field(VAL,  "0")
+   field(PREC, "1")
    info(autosaveFields, "VAL")
 }
 
