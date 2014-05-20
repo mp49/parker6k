@@ -3,3 +3,4 @@ moves_delay.py
 moves_small.py
 moves_deferred.py
 set_position.py
+drive_power.py
