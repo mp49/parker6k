@@ -25,7 +25,8 @@ drvAsynIPPortConfigure("6K","192.168.200.177:4001",0,0,0)
 #asynSetTraceMask("6K",0,0xFF)
 #asynSetTraceIOMask("6K",0,0xFF)
 
-p6kCreateController("P6K","6K",0,2,500,1000,0)
+#Create controller
+p6kCreateController("P6K","6K",0,2,500,1000)
 p6kUpload("P6K", "$(P6K_CONFIG)")
 
 #asynSetTraceMask("P6K",0,0xFF)
