@@ -114,6 +114,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   delayDoneMove_ = false;
   printNextError_ = false;
   commandError_ = false;
+  axisError_ = false;
 
   /* Set an EPICS exit handler that will shut down polling before asyn kills the IP sockets */
   epicsAtExit(shutdownCallback, pC_);
@@ -813,8 +814,10 @@ asynStatus p6kAxis::poll(bool *moving)
       setStringParam(pC_->P6K_A_Error_, "Problem reading axis status");
       setIntegerParam(pC_->motorStatusCommsError_, 1);
     } else {
-      setStringParam(pC_->P6K_A_Error_, " ");
-      setIntegerParam(pC_->motorStatusCommsError_, 0);
+      if (!axisError_) {
+	setStringParam(pC_->P6K_A_Error_, " ");
+	setIntegerParam(pC_->motorStatusCommsError_, 0);
+      }
     }
   }
   
@@ -846,6 +849,8 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
     
+    axisError_ = false;
+
     //Get the time and decide if we want to print errors.
     //Crude error message throttling.
     epicsTimeGetCurrent(&nowTime_);
@@ -948,6 +953,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
 
       //TODO: Also read TER status here, as there is more info this status message
       
+      //Set MSTA bits
       stat = (setIntegerParam(pC_->motorStatusDone_, 
 	      doneMoving) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusMoving_, 
@@ -967,6 +973,18 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       stat = (setIntegerParam(pC_->motorStatusPowerOn_, 
 	     (stringVal[P6K_TAS_DRIVE_] == pC_->P6K_OFF_)) == asynSuccess) && stat;
  
+      //Set limit error message for users
+      if ((stringVal[P6K_TAS_POSLIM_] == pC_->P6K_ON_) || 
+	  (stringVal[P6K_TAS_POSLIMSOFT_] == pC_->P6K_ON_)) {
+	axisError_ = true;
+	setStringParam(pC_->P6K_A_Error_, "ERROR: High Limit");
+      }
+      if ((stringVal[P6K_TAS_NEGLIM_] == pC_->P6K_ON_) || 
+	  (stringVal[P6K_TAS_NEGLIMSOFT_] == pC_->P6K_ON_)) {
+	axisError_ = true;
+	setStringParam(pC_->P6K_A_Error_, "ERROR: Low Limit");
+      }
+      
       //      cout << "TAS DRIVE BIT: " << stringVal[P6K_TAS_DRIVE_] << endl;
 
       if (driveType_ == P6K_SERVO_) {
@@ -977,6 +995,11 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
                (stringVal[P6K_TAS_STALL_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       }
       
+      if (stringVal[P6K_TAS_STALL_] == pC_->P6K_ON_) {
+	axisError_ = true;
+	setStringParam(pC_->P6K_A_Error_, "ERROR: Stall Detected");
+      }
+      
       uint32_t problem = 0;
       problem = 
 	(stringVal[P6K_TAS_DRIVEFAULT_] == pC_->P6K_ON_) |
@@ -984,6 +1007,11 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
 	(stringVal[P6K_TAS_POSERROR_] == pC_->P6K_ON_) |
 	commandError_;
       stat = (setIntegerParam(pC_->motorStatusProblem_, (problem!=0)) == asynSuccess) && stat;
+
+      if (problem == 1) {
+	axisError_ = true;
+	setStringParam(pC_->P6K_A_Error_, "ERROR: Moved Failed");
+      }
       
       if (!stat) {
 	if (printErrors) {
@@ -993,6 +1021,8 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
 	}
       }
     }
+    
+    
 
     //Clear error print flag for this axis if problem has been removed.
     if (stat) {
