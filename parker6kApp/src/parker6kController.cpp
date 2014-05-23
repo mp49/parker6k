@@ -298,7 +298,7 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
   int32_t eomReason = 0;
   size_t nwrite = 0;
   size_t nread = 0;
-  int32_t commsError = 0;
+  //int32_t commsError = 0;
   char temp[P6K_MAXBUF_] = {0};
   static const char *functionName = "p6kController::lowLevelWriteRead";
 
@@ -697,7 +697,6 @@ asynStatus p6kController::poll()
   bool stat = true;
   int32_t nvals = 0;
   bool printErrors = 0;
-  int32_t intVal = 0;
   char stringVal[P6K_MAXBUF] = {0};
   static const char *functionName = "p6kController::poll";
 
@@ -889,7 +888,7 @@ asynStatus p6kController::setDeferredMoves(bool deferMoves)
       if (pAxis->deferredMove_) {
 	snprintf(command, P6K_MAXBUF, "%dD%d", pAxis->axisNo_, pAxis->deferredPosition_);
 	stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
-	if (axis <= P6K_MAXAXES_) {
+	if (static_cast<uint32_t>(axis) <= P6K_MAXAXES_) {
 	  move[axis] = 1;
 	}
 	memset(command, 0, sizeof(command));

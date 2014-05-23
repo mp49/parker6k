@@ -469,7 +469,7 @@ asynStatus p6kAxis::autoDriveEnable(void)
 	      "%s Auto drive enable\n", functionName);
     if (setClosedLoop(true) != asynSuccess) {
       asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
-		"%s ERROR: Failed to enable axis \n", functionName, axisNo_);
+		"%s ERROR: Failed to enable axis %d\n", functionName, axisNo_);
       setStringParam(pC_->P6K_A_MoveError_, "ERROR: Failed to enable drive");
       return asynError;
     }
