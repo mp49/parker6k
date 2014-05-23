@@ -19,7 +19,6 @@
 #define P6K_C_FirstParamString "P6K_C_FIRSTPARAM"
 #define P6K_C_LastParamString  "P6K_C_LASTPARAM"
 
-//Controller specific parameters
 #define P6K_C_GlobalStatusString    "P6K_C_GLOBALSTATUS"
 #define P6K_C_CommsErrorString      "P6K_C_COMMSERROR"
 #define P6K_C_CommandString         "P6K_C_COMMAND"
@@ -86,6 +85,10 @@
 #define P6K_CMD_TSS      "TSS"
 #define P6K_CMD_V        "V"
 
+/**
+ * p6kController derives from the virtual class asynMotorController.
+ * 
+ */
 class p6kController : public asynMotorController {
 
  public:
@@ -108,9 +111,6 @@ class p6kController : public asynMotorController {
   asynStatus poll();
 
   asynStatus upload(const char *filename); 
-
-  //Set the open loop encoder axis
-  asynStatus pk6SetOpenLoopEncoderAxis(int axis, int encoder_axis);
 
  protected:
   p6kAxis **pAxes_;       /**< Array of pointers to axis objects */

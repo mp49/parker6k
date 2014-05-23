@@ -9,7 +9,7 @@ Developed at SNS in 2014 by Matt Pearson.
 
 \subsection intro Introduction
 
-The parker6k driver enables control of a Parker 6K controllers
+The parker6k driver enables control of a Parker 6K controller
 via the EPICS motor record. 
 
 This is the Asyn 'model3' version which
@@ -25,7 +25,9 @@ has a number of advantages over the model 1 driver:
 <li>Ability to set both motor and encoder position</li>
 </ul>
 
-The driver has been tested on stepper drives (with and without encoders).
+\subsubsection notes Notes
+
+The driver has been tested on stepper drives (with and without encoders) using a 4-axis compumotor controller. 
 The driver has not been tested with servo drives.
 
 The move function automatically sets up the S-curve parameters at
@@ -35,7 +37,7 @@ It uses half the acceleration rate for the jerk parameters (AA, ADA).
 The home function uses the home velocity before executing the home (HOM).
 It is expected that the controller home parameters have already been 
 configured (eg. HOMZ). NOTE: for encoder based systems the controller
-does not reset the encoder position on a successful home. Current the 
+does not reset the encoder position on a successful home. Currently the 
 user must do this after a home.
 
 In order to set the position on an axis:
@@ -46,7 +48,7 @@ In order to set the position on an axis:
 <li>set SET back to 0</li>
 </ol>
 
-By setting the postion to zero, the user can perform a manual home
+By setting the position to zero, the user can perform a manual home
 on a limit switch for example (which the controller does not support).
 
 \subsection startup IOC Startup File
@@ -56,7 +58,7 @@ demonstrates how to use the driver. There are
 several IOC startup file commands required:
 
 <code>
-# Connect TCP socket to controler:<br>
+# Connect TCP socket to controller:<br>
 drvAsynIPPortConfigure("6K","192.168.200.177:4001",0,0,0)<br>
 
 # Create 'controller' object<br>
@@ -67,7 +69,7 @@ drvAsynIPPortConfigure("6K","192.168.200.177:4001",0,0,0)<br>
 # Number of axes (1 based, including un-used axes)<br>
 # Moving polling rate<br>
 # Idle polling rate<br>
-p6kCreateController("P6K","6K",0,2,500,1000,0)<br>
+p6kCreateController("P6K","6K",0,2,500,1000)<br>
 
 # Optionally upload a controller configuration<br>
 # Arguments:<br>
@@ -94,7 +96,7 @@ LIMLVL001000000000<br>
 </code>
 
 It is not necessary to upload a controller config file,
-but it advantageous to do so in order to easily recover
+but it is advantageous to do so in order to easily recover
 after a power cycle. Otherwise there must be a manual
 step to configure the controller before running the IOC.
 
@@ -178,5 +180,27 @@ delay time between the end of the move and drive disable). This is implemented
 in database logic due to the possibility of the motor record doing
 mutliple moves (so we use DMOV transitions to implement this).</li>
 </ul>
+
+
+\subsection building Building and Testing
+
+You may need to modify the files in the top level configure directory
+for your local site, especially the RELEASE file.
+
+The module was developed using:
+<ul>
+<li>EPICS BASE 3.14.12.2</li>
+<li>ASYN 4-22</li>
+<li>MOTOR 6-8</li>
+</ul>
+
+In addition, the example IOC was built to include support
+for autosave and devIocStats.
+
+In parker6k/example/test there are some Python test scripts that were
+developed for testing the example IOC using two stepper motors. These 
+may not be very useful outside of the SNS. They require the 
+<a href=http://controls.diamond.ac.uk/downloads/python/cothread/>cothread</a>
+library from Diamond Light Source.
 
 */

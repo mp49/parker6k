@@ -9,6 +9,7 @@
  * 
  ********************************************/
 
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -56,6 +57,9 @@ const epicsUInt32 p6kAxis::P6K_SERVO_       = 1;
 const epicsUInt32 p6kAxis::P6K_LIM_DISABLE_ = 0;
 const epicsUInt32 p6kAxis::P6K_LIM_ENABLE_  = 3;
 
+/**
+ * Asyn shutdown function
+ */
 static void shutdownCallback(void *pPvt)
 {
   p6kController *pC = static_cast<p6kController *>(pPvt);
@@ -66,7 +70,8 @@ static void shutdownCallback(void *pPvt)
 }
 
 /**
- * p6kAxis constructor.
+ * p6kAxis constructor. This initializes all the data members and asyn
+ * paramLib parameters. It also triggers a poll.
  * @param pC Pointer to a p6kController object.
  * @param axisNo The axis number for this p6kAxis (1 based).
  */
@@ -281,12 +286,17 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
   return asynSuccess;
 }
 
-
+/**
+ * Destructor.
+ */
 p6kAxis::~p6kAxis() 
 {
-  //Destructor
+  //We should never get here.
 }
 
+/**
+ * Print axis parameters that have been read at startup.
+ */
 void p6kAxis::printAxisParams(void)
 {
   int32_t  intVal = 0;
@@ -443,7 +453,9 @@ int32_t p6kAxis::getScaleFactor(void)
 
 
 /**
- * Deal with automatic drive enable
+ * Deal with automatic drive enable. If this is enabled then
+ * the drive will be powered on. If a P6K_A_AutoDriveEnableDelay_
+ * is set then this function will block until a timer expires.
  */
 asynStatus p6kAxis::autoDriveEnable(void)
 {
@@ -587,15 +599,21 @@ asynStatus p6kAxis::setPosition(double position)
     epicsFloat64 encRatio = 0.0;
     pC_->getDoubleParam(axisNo_, pC_->motorEncoderRatio_, &encRatio);
 
-    epicsInt32 encpos = (epicsInt32) floor((position*encRatio) + 0.5);
-
-    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
-	      "%s: Set encoder axis %d on controller %s to position %d, encRatio: %f\n", 
-	      functionName, axisNo_, pC_->portName, pos, encRatio);
-    
-    snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_PESET, encpos);
-    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-    memset(command, 0, sizeof(command));
+    if (encRatio != 0) {
+      epicsInt32 encpos = (epicsInt32) floor((position*encRatio) + 0.5);
+      
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
+		"%s: Set encoder axis %d on controller %s to position %d, encRatio: %f\n", 
+		functionName, axisNo_, pC_->portName, pos, encRatio);
+      
+      snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_PESET, encpos);
+      stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+      memset(command, 0, sizeof(command));
+    } else {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+	      "%s: encRation is zero. Not setting encoder position.\n", 
+	      functionName);
+    }
   }
 
   /*Now do a fast update, to get the new position from the controller.*/
@@ -634,6 +652,9 @@ asynStatus p6kAxis::stop(double acceleration)
   return status;
 }
 
+/**
+ * See asynMotorAxis::setEncoderRatio
+ */
 asynStatus p6kAxis::setEncoderRatio(double ratio)
 { 
   asynStatus status = asynSuccess;
@@ -645,6 +666,9 @@ asynStatus p6kAxis::setEncoderRatio(double ratio)
   return status;
 }
 
+/**
+ * See asynMotorAxis::setHighLimit
+ */
 asynStatus p6kAxis::setHighLimit(double highLimit)
 {
   asynStatus status = asynSuccess;
@@ -678,6 +702,9 @@ asynStatus p6kAxis::setHighLimit(double highLimit)
   return status;
 }
 
+/**
+ * See asynMotorAxis::setLowLimit
+ */
 asynStatus p6kAxis::setLowLimit(double lowLimit)
 {
   asynStatus status = asynSuccess;

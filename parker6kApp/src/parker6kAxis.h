@@ -9,6 +9,7 @@
  * 
  ********************************************/
 
+
 #ifndef p6kAxis_H
 #define p6kAxis_H
 
@@ -19,15 +20,20 @@
 
 class p6kController;
 
+/**
+ * p6kAxis derives from the virtual class asynMotorAxis. It re-implements some functions
+ * and defines all the axis specific logic, including the polling function that
+ * populates the axis parameters.
+ */
 class p6kAxis : public asynMotorAxis
 {
   public:
   //These are the methods we override from the base class
-  p6kAxis(p6kController *pController, int axisNo);
+  p6kAxis(p6kController *pController, int32_t axisNo);
   virtual ~p6kAxis();
-  asynStatus move(double position, int relative, double min_velocity, double max_velocity, double acceleration);
+  asynStatus move(double position, int32_t relative, double min_velocity, double max_velocity, double acceleration);
   asynStatus moveVelocity(double min_velocity, double max_velocity, double acceleration);
-  asynStatus home(double min_velocity, double max_velocity, double acceleration, int forwards);
+  asynStatus home(double min_velocity, double max_velocity, double acceleration, int32_t forwards);
   asynStatus stop(double acceleration);
   asynStatus poll(bool *moving);
   asynStatus setPosition(double position);
@@ -71,7 +77,6 @@ class p6kAxis : public asynMotorAxis
   uint32_t amp_enabled_;
   uint32_t fatal_following_;
   uint32_t encoder_axis_;
-  //  uint32_t limitsCheckDisable_;
   epicsTimeStamp nowTime_;
   epicsFloat64 nowTimeSecs_;
   epicsFloat64 lastTimeSecs_; 

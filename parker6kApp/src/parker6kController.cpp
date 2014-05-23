@@ -9,6 +9,7 @@
  * 
  ********************************************/
 
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -779,7 +780,7 @@ asynStatus p6kController::poll()
  * is optional. The driver can be used without it if the user has another means of 
  * pre-configuring the controller.
  * 
- * @param fileName (and full path)
+ * @param filename (and full path)
  * @return asynStatus
  */
 asynStatus p6kController::upload(const char *filename) 
