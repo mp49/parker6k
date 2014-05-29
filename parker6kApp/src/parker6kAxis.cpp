@@ -164,6 +164,8 @@ asynStatus p6kAxis::readIntParam(const char *cmd, epicsUInt32 param, uint32_t *v
 
   static const char *functionName = "p6kAxis::readIntParam";
   
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
+
   epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, cmd);
   status = pC_->lowLevelWriteRead(command, response);
   if (status == asynSuccess) {
@@ -205,6 +207,8 @@ asynStatus p6kAxis::readDoubleParam(const char *cmd, epicsUInt32 param, double *
 
   static const char *functionName = "p6kAxis::readDoubleParam";
   
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
+
   epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, cmd);
   status = pC_->lowLevelWriteRead(command, response);
   if (status == asynSuccess) {
@@ -258,8 +262,6 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
     stat = (readDoubleParam(P6K_CMD_LSNEG, pC_->motorLowLimit_, &doubleVal) == asynSuccess) && stat;
 
   }
-
-  //  setIntegerParam(pC_->motorStatusHasEncoder_, 1);
 
   if (!stat) {
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
@@ -421,13 +423,15 @@ int32_t p6kAxis::getScaleFactor(void)
 {
   static const char *functionName = "p6kAxis::getScaleFactor";
 
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
+
   //Read DRES and ERES for velocity and accel scaling
   int32_t dres = 0;
   int32_t eres = 0;
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_DRES_, &dres);
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_ERES_, &eres);
   int32_t scale = 0;
-  if (driveType_ == 0) {
+  if (driveType_ == P6K_SERVO_) {
     scale = eres;
   } else {
     scale = dres;
@@ -448,6 +452,8 @@ int32_t p6kAxis::getScaleFactor(void)
 asynStatus p6kAxis::autoDriveEnable(void)
 {
   static const char *functionName = "p6kAxis::autoDriveEnable";
+
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
   int32_t auto_drive_enable = 0;
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_AutoDriveEnable_, &auto_drive_enable);
