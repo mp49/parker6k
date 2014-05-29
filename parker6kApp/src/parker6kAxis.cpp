@@ -91,22 +91,9 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   }
 
   //Initialize non-static data members
-  setpointPosition_ = 0.0;
-  encoderPosition_ = 0.0;
-  currentVelocity_ = 0.0;
-  velocity_ = 0.0;
-  accel_ = 0.0;
-  highLimit_ = 0.0;
-  lowLimit_ = 0.0;
-  limitsDisabled_ = 0;
   deferredPosition_ = 0.0;
   deferredMove_ = 0;
   deferredRelative_ = 0;
-  previous_position_ = 0.0;
-  previous_direction_ = 0;
-  amp_enabled_ = 0;
-  fatal_following_ = 0;
-  encoder_axis_ = 0;
   nowTimeSecs_ = 0.0;
   lastTimeSecs_ = 0.0;
   doneTimeSecs_ = 0.0;
@@ -153,8 +140,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
  
   callParamCallbacks();
 
-  /* Wake up the poller task which will make it do a poll, 
-   * updating values for this axis to use the new resolution (stepSize_) */   
+  /* Wake up the poller task which will make it do a poll */   
   pC_->wakeupPoller();
  
 }

@@ -59,24 +59,9 @@ class p6kAxis : public asynMotorAxis
   asynStatus autoDriveEnable(void);
   int32_t getScaleFactor(void);
 
-  double setpointPosition_;
-  double encoderPosition_;
-  double currentVelocity_;
-  double velocity_;
-  double accel_;
-  double highLimit_;
-  double lowLimit_;
-  uint32_t limitsDisabled_;
-  double stepSize_;
   uint32_t deferredPosition_;
   uint32_t deferredMove_;
   uint32_t deferredRelative_;
-  uint32_t scale_;
-  double previous_position_;
-  uint32_t previous_direction_;
-  uint32_t amp_enabled_;
-  uint32_t fatal_following_;
-  uint32_t encoder_axis_;
   epicsTimeStamp nowTime_;
   epicsFloat64 nowTimeSecs_;
   epicsFloat64 lastTimeSecs_; 
