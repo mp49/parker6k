@@ -20,6 +20,7 @@
 #include <epicsExport.h>
 #include <epicsExit.h>
 #include <epicsString.h>
+#include <epicsStdio.h>
 #include <iocsh.h>
 
 #include "parker6kController.h"
@@ -163,10 +164,10 @@ asynStatus p6kAxis::readIntParam(const char *cmd, epicsUInt32 param, uint32_t *v
 
   static const char *functionName = "p6kAxis::readIntParam";
   
-  snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, cmd);
+  epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, cmd);
   status = pC_->lowLevelWriteRead(command, response);
   if (status == asynSuccess) {
-    snprintf(scan,  P6K_MAXBUF, "%%d%s%%d", cmd);
+    epicsSnprintf(scan,  P6K_MAXBUF, "%%d%s%%d", cmd);
     nvals = sscanf(response, scan, &axisNum, val);    
     if (nvals == 2) {
       setIntegerParam(param, *val);
@@ -204,10 +205,10 @@ asynStatus p6kAxis::readDoubleParam(const char *cmd, epicsUInt32 param, double *
 
   static const char *functionName = "p6kAxis::readDoubleParam";
   
-  snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, cmd);
+  epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, cmd);
   status = pC_->lowLevelWriteRead(command, response);
   if (status == asynSuccess) {
-    snprintf(scan,  P6K_MAXBUF, "%%d%s%%lf", cmd);
+    epicsSnprintf(scan,  P6K_MAXBUF, "%%d%s%%lf", cmd);
     nvals = sscanf(response, scan, &axisNum, val);
     if (nvals == 2) {
       setDoubleParam(param, *val);
@@ -351,13 +352,13 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
   if (relative > 1) {
     relative = 1;
   }
-  snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_MA, !relative);
+  epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_MA, !relative);
   status = pC_->lowLevelWriteRead(command, response);
   memset(command, 0, sizeof(command));
 
   if (max_velocity != 0) {
     epicsFloat64 vel = max_velocity / scale;
-    snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_V, maxDigits, vel);
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_V, maxDigits, vel);
     status = pC_->lowLevelWriteRead(command, response);
     memset(command, 0, sizeof(command));
   }
@@ -365,20 +366,20 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
   if (acceleration != 0) {
     if (max_velocity != 0) {
       epicsFloat64 accel = acceleration / scale;
-      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_A, maxDigits, accel);
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_A, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
       
       //Set S curve parameters too
-      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AA, maxDigits, accel/2);
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AA, maxDigits, accel/2);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
 
-      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AD, maxDigits, accel);
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AD, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
 
-      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_ADA, maxDigits, accel);
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_ADA, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
     }
@@ -388,10 +389,10 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
   //In case we cancel the deferred move.
   epicsUInt32 pos = static_cast<epicsUInt32>(position);
   if (pC_->movesDeferred_ == 0) {
-    snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_D, pos);
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_D, pos);
     status = pC_->lowLevelWriteRead(command, response);
     memset(command, 0, sizeof(command));
-    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_GO);
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_GO);
   } else { /* deferred moves */
     deferredPosition_ = pos;
     deferredMove_ = 1;
@@ -499,7 +500,7 @@ asynStatus p6kAxis::home(double min_velocity, double max_velocity, double accele
 
   if (max_velocity != 0) {
     epicsFloat64 vel = max_velocity / scale;
-    snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMV, maxDigits, vel);
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMV, maxDigits, vel);
     status = pC_->lowLevelWriteRead(command, response);
     memset(command, 0, sizeof(command));
   }
@@ -507,26 +508,26 @@ asynStatus p6kAxis::home(double min_velocity, double max_velocity, double accele
   if (acceleration != 0) {
     if (max_velocity != 0) {
       epicsFloat64 accel = acceleration / scale;
-      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMA, maxDigits, accel);
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMA, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
       
       //Set S curve parameters too
-      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMAA, maxDigits, accel/2);
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMAA, maxDigits, accel/2);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
 
-      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMAD, maxDigits, accel);
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMAD, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
 
-      snprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMADA, maxDigits, accel);
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMADA, maxDigits, accel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
     }
   }
 
-  snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_HOM, (forwards>0?0:1));
+  epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_HOM, (forwards>0?0:1));
   status = pC_->lowLevelWriteRead(command, response);
   memset(command, 0, sizeof(command));
 
@@ -571,12 +572,12 @@ asynStatus p6kAxis::setPosition(double position)
 	    "%s: Set axis %d on controller %s to position %d\n", 
 	    functionName, axisNo_, pC_->portName, pos);
 
-  snprintf(command, P6K_MAXBUF, "!%d%s", axisNo_, P6K_CMD_S);
+  epicsSnprintf(command, P6K_MAXBUF, "!%d%s", axisNo_, P6K_CMD_S);
   stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
   memset(command, 0, sizeof(command));
 
   if (stat) {
-    snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_PSET, pos);
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_PSET, pos);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
   memset(command, 0, sizeof(command));
   }
@@ -593,7 +594,7 @@ asynStatus p6kAxis::setPosition(double position)
 		"%s: Set encoder axis %d on controller %s to position %d, encRatio: %f\n", 
 		functionName, axisNo_, pC_->portName, pos, encRatio);
       
-      snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_PESET, encpos);
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_PESET, encpos);
       stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
       memset(command, 0, sizeof(command));
     } else {
@@ -631,7 +632,7 @@ asynStatus p6kAxis::stop(double acceleration)
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
-  snprintf(command, P6K_MAXBUF, "!%d%s", axisNo_, P6K_CMD_S);
+  epicsSnprintf(command, P6K_MAXBUF, "!%d%s", axisNo_, P6K_CMD_S);
   status = pC_->lowLevelWriteRead(command, response);
 
   deferredMove_ = 0;
@@ -672,11 +673,11 @@ asynStatus p6kAxis::setHighLimit(double highLimit)
 	    "%s: Setting high limit on controller %s, axis %d to %d\n",
 	    functionName, pC_->portName, axisNo_, limit);
   
-  snprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
+  epicsSnprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
   stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
   memset(command, 0, sizeof(command));
   
-  snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSPOS, limit);
+  epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSPOS, limit);
   stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
   
   if (!stat) {
@@ -708,11 +709,11 @@ asynStatus p6kAxis::setLowLimit(double lowLimit)
 	    "%s: Setting high limit on controller %s, axis %d to %d\n",
 	    functionName, pC_->portName, axisNo_, limit);
   
-  snprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
+  epicsSnprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
   stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
   memset(command, 0, sizeof(command));
   
-  snprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSNEG, limit);
+  epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSNEG, limit);
   stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
   
   if (!stat) {
@@ -853,7 +854,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     }
 
     /* Transfer current position and encoder position.*/
-    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPC);
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPC);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
     if (stat) {
       nvals = sscanf(response, "%d"P6K_CMD_TPC"%d", &axisNum, &intVal);
@@ -863,7 +864,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     }
     memset(command, 0, sizeof(command));
 
-    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPE);
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPE);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
     if (stat) {
       nvals = sscanf(response, "%d"P6K_CMD_TPE"%d", &axisNum, &intVal);
@@ -874,7 +875,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     memset(command, 0, sizeof(command));
 
     /* Transfer axis status */
-    snprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TAS);
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TAS);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
     if (stat) {
       //      printf("  Status response: %s\n", response);

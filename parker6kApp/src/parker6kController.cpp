@@ -160,7 +160,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   char response[P6K_MAXBUF_] = {0};
 
   //Disable command echo
-  snprintf(command, P6K_MAXBUF_, "%s0", P6K_CMD_ECHO);
+  epicsSnprintf(command, P6K_MAXBUF_, "%s0", P6K_CMD_ECHO);
   if (lowLevelWriteRead(command, response) != asynSuccess) {
     asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
 	      "%s: Setting %s failed.\n", functionName, P6K_CMD_ECHO);
@@ -169,7 +169,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
 
     memset(command, 0, sizeof(command));
     //Enable continuous command execution mode
-    snprintf(command, P6K_MAXBUF_, "%s1", P6K_CMD_COMEXC);
+    epicsSnprintf(command, P6K_MAXBUF_, "%s1", P6K_CMD_COMEXC);
     if (lowLevelWriteRead(command, response) != asynSuccess) {
       asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
 		"%s: Continuous command execution mode (%s) failed.\n", functionName, P6K_CMD_COMEXC);
@@ -601,9 +601,9 @@ asynStatus p6kController::writeOctet(asynUser *pasynUser, const char *value,
     
     if (function == P6K_C_Command_) {
       //Send command to controller
-      snprintf(command, P6K_MAXBUF_, "%s", value);
+      epicsSnprintf(command, P6K_MAXBUF_, "%s", value);
       if (lowLevelWriteRead(command, response) != asynSuccess) {
-	snprintf(error, P6K_MAXBUF_, "Command %s failed", command);
+	epicsSnprintf(error, P6K_MAXBUF_, "Command %s failed", command);
 	asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
 		  "%s: %s.\n", functionName, error);
 	setStringParam(P6K_C_Error_, error);
@@ -615,7 +615,7 @@ asynStatus p6kController::writeOctet(asynUser *pasynUser, const char *value,
     } else if (function == P6K_A_Command_) {
       //Send axis specific command to controller. 
       //This adds on the axis number to the command
-      //snprintf(command, P6K_MAXBUF_, "%d%s", pAxis->axisNo_, value);
+      //epicsSnprintf(command, P6K_MAXBUF_, "%d%s", pAxis->axisNo_, value);
       //if (lowLevelWriteRead(command, response) != asynSuccess) {
       //asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
       //	  "%s: Command %s failed for axis %d.\n", functionName, command, pAxis->axisNo_);
@@ -729,7 +729,7 @@ asynStatus p6kController::poll()
   //So it's a 'controller' command.
   
   //Transfer system status
-  snprintf(command, P6K_MAXBUF, "%s", P6K_CMD_TSS);
+  epicsSnprintf(command, P6K_MAXBUF, "%s", P6K_CMD_TSS);
   stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
   if (stat) {
     nvals = sscanf(response, P6K_CMD_TSS"%s", stringVal);
@@ -886,7 +886,7 @@ asynStatus p6kController::setDeferredMoves(bool deferMoves)
     pAxis = getAxis(axis);
     if (pAxis != NULL) {
       if (pAxis->deferredMove_) {
-	snprintf(command, P6K_MAXBUF, "%dD%d", pAxis->axisNo_, pAxis->deferredPosition_);
+	epicsSnprintf(command, P6K_MAXBUF, "%dD%d", pAxis->axisNo_, pAxis->deferredPosition_);
 	stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
 	if (static_cast<uint32_t>(axis) <= P6K_MAXAXES_) {
 	  move[axis] = 1;
@@ -904,7 +904,7 @@ asynStatus p6kController::setDeferredMoves(bool deferMoves)
   } else {
   
     //Execute the deferred move
-    snprintf(command, P6K_MAXBUF, "GO%d%d%d%d%d%d%d%d", 
+    epicsSnprintf(command, P6K_MAXBUF, "GO%d%d%d%d%d%d%d%d", 
 	     move[1],move[2],move[3],move[4],move[5],move[6],move[7],move[8]);
     if (lowLevelWriteRead(command, response) != asynSuccess) {
       asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
