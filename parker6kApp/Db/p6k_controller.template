@@ -42,6 +42,7 @@ record(bi, "$(S):CommsError")
     field(ZSV,  "NO_ALARM") 
     field(OSV,  "MAJOR")
     field(SCAN, "I/O Intr")
+    info(archive, "Monitor, 00:00:10, VAL")
 }
 
 # ///
@@ -60,6 +61,7 @@ record(bi, "$(S):Config")
     field(ZSV,  "MAJOR")
     field(OSV,  "NO_ALARM") 
     field(SCAN, "I/O Intr")
+    info(archive, "Monitor, 00:00:10, VAL")
 }
 
 # ///

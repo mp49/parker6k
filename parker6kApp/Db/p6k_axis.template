@@ -206,6 +206,7 @@ record(bi, "$(M):TAS:DriveFault")
   field(ZSV, "NO_ALARM")
   field(OSV, "MAJOR")
   field(SCAN, "I/O Intr")
+  info(archive, "Monitor, 00:00:10, VAL")
 }
 
 record(bi, "$(M):TAS:TargetTimeout")
@@ -219,6 +220,7 @@ record(bi, "$(M):TAS:TargetTimeout")
   field(ZSV, "NO_ALARM")
   field(OSV, "MAJOR")
   field(SCAN, "I/O Intr")
+  info(archive, "Monitor, 00:00:10, VAL")
 }
 
 record(bi, "$(M):TAS:PositionError")
@@ -232,6 +234,7 @@ record(bi, "$(M):TAS:PositionError")
   field(ZSV, "NO_ALARM")
   field(OSV, "MAJOR")
   field(SCAN, "I/O Intr")
+  info(archive, "Monitor, 00:00:10, VAL")
 }
 
 ############################################################################
