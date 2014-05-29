@@ -134,6 +134,9 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_A_ErrorString,            asynParamOctet, &P6K_A_Error_);
   createParam(P6K_A_MoveErrorString,        asynParamOctet, &P6K_A_MoveError_);
   createParam(P6K_A_DelayTimeString,        asynParamFloat64, &P6K_A_DelayTime_);
+  createParam(P6K_A_TAS_DriveFaultString,   asynParamInt32, &P6K_A_TAS_DriveFault_);
+  createParam(P6K_A_TAS_TimeoutString,   asynParamInt32, &P6K_A_TAS_Timeout_);
+  createParam(P6K_A_TAS_PosErrString,   asynParamInt32, &P6K_A_TAS_PosErr_);
   createParam(P6K_A_AutoDriveEnableString,  asynParamInt32, &P6K_A_AutoDriveEnable_);
   createParam(P6K_A_AutoDriveEnableDelayString,  asynParamInt32, &P6K_A_AutoDriveEnableDelay_);
 

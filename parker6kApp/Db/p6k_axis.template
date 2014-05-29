@@ -193,6 +193,49 @@ record(dfanout, "$(M):ResetDisableTimer") {
 }
 
 ############################################################################
+# Read some TAS bits
+
+record(bi, "$(M):TAS:DriveFault")
+{
+  field(PINI, "YES")
+  field(DTYP, "asynInt32")
+  field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_TAS_DRIVEFAULT")
+  field(VAL, "0")
+  field(ZNAM, "No Fault")
+  field(ONAM, "Fault")
+  field(ZSV, "NO_ALARM")
+  field(OSV, "MAJOR")
+  field(SCAN, "I/O Intr")
+}
+
+record(bi, "$(M):TAS:TargetTimeout")
+{
+  field(PINI, "YES")
+  field(DTYP, "asynInt32")
+  field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_TAS_TIMEOUT")
+  field(VAL, "0")
+  field(ZNAM, "None")
+  field(ONAM, "Timeout")
+  field(ZSV, "NO_ALARM")
+  field(OSV, "MAJOR")
+  field(SCAN, "I/O Intr")
+}
+
+record(bi, "$(M):TAS:PositionError")
+{
+  field(PINI, "YES")
+  field(DTYP, "asynInt32")
+  field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_TAS_POSERR")
+  field(VAL, "0")
+  field(ZNAM, "None")
+  field(ONAM, "Error")
+  field(ZSV, "NO_ALARM")
+  field(OSV, "MAJOR")
+  field(SCAN, "I/O Intr")
+}
+
+############################################################################
+
 
 
 # These are useful if you need to set the software limits 

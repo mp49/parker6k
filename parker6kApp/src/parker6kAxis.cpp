@@ -121,6 +121,9 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   paramStatus = ((setStringParam(pC_->P6K_A_Error_, " ") == asynSuccess) && paramStatus);
   paramStatus = ((setStringParam(pC_->P6K_A_MoveError_, " ") == asynSuccess) && paramStatus);
   paramStatus = ((setDoubleParam(pC_->P6K_A_DelayTime_, 0.0) == asynSuccess) && paramStatus);
+  paramStatus = ((setIntegerParam(pC_->P6K_A_TAS_DriveFault_, 0) == asynSuccess) && paramStatus);
+  paramStatus = ((setIntegerParam(pC_->P6K_A_TAS_Timeout_, 0) == asynSuccess) && paramStatus);
+  paramStatus = ((setIntegerParam(pC_->P6K_A_TAS_PosErr_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_AutoDriveEnable_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_AutoDriveEnableDelay_, 0) == asynSuccess) && paramStatus);
   if (!paramStatus) {
@@ -994,18 +997,43 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       }
       
       uint32_t problem = 0;
-      problem = 
-	(stringVal[P6K_TAS_DRIVEFAULT_] == pC_->P6K_ON_) |
-	(stringVal[P6K_TAS_TARGETTIMEOUT_] == pC_->P6K_ON_) |
-	(stringVal[P6K_TAS_POSERROR_] == pC_->P6K_ON_) |
-	commandError_;
-      stat = (setIntegerParam(pC_->motorStatusProblem_, (problem!=0)) == asynSuccess) && stat;
+      if (commandError_) {
+	problem = 1;
+      }
 
+      if (stringVal[P6K_TAS_DRIVEFAULT_] == pC_->P6K_ON_) {
+	stat = (setIntegerParam(pC_->P6K_A_TAS_DriveFault_, 1) == asynSuccess) && stat;
+	problem = 1;
+	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+		    "ERROR: Drive fault on controller %s, axis %d\n", pC_->portName, axisNo_);
+      } else {
+	stat = (setIntegerParam(pC_->P6K_A_TAS_DriveFault_, 0) == asynSuccess) && stat;
+      }
+
+      if (stringVal[P6K_TAS_TARGETTIMEOUT_] == pC_->P6K_ON_) {
+	stat = (setIntegerParam(pC_->P6K_A_TAS_Timeout_, 1) == asynSuccess) && stat;
+	problem = 1;
+	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+		    "ERROR: Target timeout on controller %s, axis %d\n", pC_->portName, axisNo_);
+      } else {
+	stat = (setIntegerParam(pC_->P6K_A_TAS_Timeout_, 0) == asynSuccess) && stat;
+      }
+
+      if (stringVal[P6K_TAS_POSERROR_] == pC_->P6K_ON_) {
+	stat = (setIntegerParam(pC_->P6K_A_TAS_PosErr_, 1) == asynSuccess) && stat;
+	problem = 1;
+	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+		    "ERROR: Position error on controller %s, axis %d\n", pC_->portName, axisNo_);
+      } else {
+	stat = (setIntegerParam(pC_->P6K_A_TAS_PosErr_, 0) == asynSuccess) && stat;
+      }
+
+      stat = (setIntegerParam(pC_->motorStatusProblem_, (problem!=0)) == asynSuccess) && stat;
       if (problem == 1) {
 	axisError_ = true;
 	setStringParam(pC_->P6K_A_Error_, "ERROR: Moved Failed");
       }
-      
+
       if (!stat) {
 	if (printErrors) {
 	  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
@@ -1015,8 +1043,6 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       }
     }
     
-    
-
     //Clear error print flag for this axis if problem has been removed.
     if (stat) {
       printNextError_ = true;

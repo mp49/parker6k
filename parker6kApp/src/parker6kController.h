@@ -45,6 +45,9 @@
 #define P6K_A_ErrorString      "P6K_A_ERROR"
 #define P6K_A_MoveErrorString  "P6K_A_MOVEERROR"
 #define P6K_A_DelayTimeString  "P6K_A_DELAYTIME"
+#define P6K_A_TAS_DriveFaultString  "P6K_A_TAS_DRIVEFAULT"
+#define P6K_A_TAS_TimeoutString  "P6K_A_TAS_TIMEOUT"
+#define P6K_A_TAS_PosErrString  "P6K_A_TAS_POSERR"
 #define P6K_A_AutoDriveEnableString  "P6K_A_AUTO_DRIVE_ENABLE"
 #define P6K_A_AutoDriveEnableDelayString  "P6K_A_AUTO_DRIVE_ENABLE_DELAY"
 
@@ -136,6 +139,9 @@ class p6kController : public asynMotorController {
   int P6K_C_Config_;
   int P6K_C_Log_;
   int P6K_A_DelayTime_;
+  int P6K_A_TAS_DriveFault_;
+  int P6K_A_TAS_Timeout_;
+  int P6K_A_TAS_PosErr_;
   int P6K_A_AutoDriveEnable_;
   int P6K_A_AutoDriveEnableDelay_;
   int P6K_C_TSS_SystemReady_;
