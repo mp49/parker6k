@@ -31,6 +31,8 @@
 #define P6K_C_TSS_ImmediateString   "P6K_C_TSS_IMMEDIATE"
 #define P6K_C_TSS_CmdErrorString    "P6K_C_TSS_CMDERROR"
 #define P6K_C_TSS_MemErrorString    "P6K_C_TSS_MEMERROR"
+#define P6K_C_TLIM_EnableString     "P6K_C_TLIM_ENABLE"
+#define P6K_C_TLIM_BitsString       "P6K_C_TLIM_BITS"
 
 //Axis specific parameters
 #define P6K_A_DRESString       "P6K_A_DRES"
@@ -149,6 +151,8 @@ class p6kController : public asynMotorController {
   int P6K_C_TSS_Immediate_;
   int P6K_C_TSS_CmdError_;
   int P6K_C_TSS_MemError_;
+  int P6K_C_TLIM_Enable_;
+  int P6K_C_TLIM_Bits_;
   int P6K_C_LastParam_;
   #define LAST_P6K_PARAM P6K_C_LastParam_
 
@@ -190,6 +194,11 @@ class p6kController : public asynMotorController {
   static const epicsUInt32 P6K_TSS_IMMEDIATE_;
   static const epicsUInt32 P6K_TSS_CMDERROR_;
   static const epicsUInt32 P6K_TSS_MEMERROR_;
+
+  static const epicsUInt32 P6K_TLIM_BIT1_;
+  static const epicsUInt32 P6K_TLIM_BIT2_;
+  static const epicsUInt32 P6K_TLIM_BIT3_;
+  static const epicsUInt32 P6K_TLIM_SIZE_;
 
   friend class p6kAxis;
 

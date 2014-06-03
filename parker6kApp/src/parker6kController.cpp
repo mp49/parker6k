@@ -50,12 +50,18 @@ const char * p6kController::P6K_ASYN_OEOS_ = "\n";
 const char p6kController::P6K_ON_       = '1';
 const char p6kController::P6K_OFF_      = '0';
 
-/* TSS Status Bits (position in char array, not TSS bit position) */
+//TSS Status Bits (position in char array, not TSS bit position) 
 const epicsUInt32 p6kController::P6K_TSS_SYSTEMREADY_ = 0;
 const epicsUInt32 p6kController::P6K_TSS_PROGRUNNING_ = 2;
 const epicsUInt32 p6kController::P6K_TSS_IMMEDIATE_   = 3;
 const epicsUInt32 p6kController::P6K_TSS_CMDERROR_    = 12;
 const epicsUInt32 p6kController::P6K_TSS_MEMERROR_    = 26;
+
+//TLIM Bits (position in char array of first axis)
+const epicsUInt32 p6kController::P6K_TLIM_BIT1_ = 0;
+const epicsUInt32 p6kController::P6K_TLIM_BIT2_ = 1;
+const epicsUInt32 p6kController::P6K_TLIM_BIT3_ = 2;
+const epicsUInt32 p6kController::P6K_TLIM_SIZE_ = 4;
 
 //C function prototypes, for the functions that can be called on IOC shell.
 extern "C" {
@@ -117,6 +123,8 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_C_TSS_ImmediateString,    asynParamInt32, &P6K_C_TSS_Immediate_);
   createParam(P6K_C_TSS_CmdErrorString,     asynParamInt32, &P6K_C_TSS_CmdError_);
   createParam(P6K_C_TSS_MemErrorString,     asynParamInt32, &P6K_C_TSS_MemError_);
+  createParam(P6K_C_TLIM_EnableString,      asynParamInt32, &P6K_C_TLIM_Enable_);
+  createParam(P6K_C_TLIM_BitsString,        asynParamInt32, &P6K_C_TLIM_Bits_);
   createParam(P6K_C_LastParamString,        asynParamInt32, &P6K_C_LastParam_);
 
   //Create axis specific parameters
@@ -135,8 +143,8 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_A_MoveErrorString,        asynParamOctet, &P6K_A_MoveError_);
   createParam(P6K_A_DelayTimeString,        asynParamFloat64, &P6K_A_DelayTime_);
   createParam(P6K_A_TAS_DriveFaultString,   asynParamInt32, &P6K_A_TAS_DriveFault_);
-  createParam(P6K_A_TAS_TimeoutString,   asynParamInt32, &P6K_A_TAS_Timeout_);
-  createParam(P6K_A_TAS_PosErrString,   asynParamInt32, &P6K_A_TAS_PosErr_);
+  createParam(P6K_A_TAS_TimeoutString,      asynParamInt32, &P6K_A_TAS_Timeout_);
+  createParam(P6K_A_TAS_PosErrString,       asynParamInt32, &P6K_A_TAS_PosErr_);
   createParam(P6K_A_AutoDriveEnableString,  asynParamInt32, &P6K_A_AutoDriveEnable_);
   createParam(P6K_A_AutoDriveEnableDelayString,  asynParamInt32, &P6K_A_AutoDriveEnableDelay_);
 
@@ -192,6 +200,8 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
     paramStatus = ((setIntegerParam(P6K_C_TSS_Immediate_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_CmdError_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_MemError_, 0) == asynSuccess) && paramStatus);
+    paramStatus = ((setIntegerParam(P6K_C_TLIM_Enable_, 0) == asynSuccess) && paramStatus);
+    paramStatus = ((setIntegerParam(P6K_C_TLIM_Bits_, 0) == asynSuccess) && paramStatus);
 
     callParamCallbacks();
 
@@ -724,12 +734,32 @@ asynStatus p6kController::poll()
   }
   
   //Set any controller specific parameters. 
-  //Some of these may be used by the axis poll to set axis problem bits.
+  //Some of these may be used by the axis poll to set axis bits.
 
-  //NOTE: do we have to use TLIM to monitor limit status?
-  //See: https://trac.sns.gov/slowcontrols/ticket/125
-  //Can't read back TLIM for one axis, only all axes at once.
-  //So it's a 'controller' command.
+  //Transfer limit and home status and pack into uint32_t.
+  int32_t tlim = 0;
+  int32_t tlim_bits = 0;
+  int32_t tlim_offset = 0;
+  getIntegerParam(P6K_C_TLIM_Enable_, &tlim);
+  setIntegerParam(P6K_C_TLIM_Bits_, 0);
+  if (tlim == 1) {
+    epicsSnprintf(command, P6K_MAXBUF, "%s", P6K_CMD_TLIM);
+    stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    if (stat) {
+      nvals = sscanf(response, P6K_CMD_TLIM"%s", stringVal);
+      for (uint32_t axis=0; axis<P6K_MAXAXES_; ++axis) {
+	for (uint32_t bit=0; bit<P6K_TLIM_SIZE_; ++bit) {
+	  tlim_offset = bit + (P6K_TLIM_SIZE_ * axis);
+	  if (tlim_offset < P6K_MAXBUF_) { 
+	    tlim_bits |= ((stringVal[tlim_offset] == P6K_ON_) << tlim_offset);
+	  }
+	}
+      }
+      stat = (setIntegerParam(P6K_C_TLIM_Bits_, tlim_bits) == asynSuccess) && stat;
+    }
+    memset(command, 0, sizeof(command));
+    memset(stringVal, 0, sizeof(stringVal));
+  }
   
   //Transfer system status
   epicsSnprintf(command, P6K_MAXBUF, "%s", P6K_CMD_TSS);

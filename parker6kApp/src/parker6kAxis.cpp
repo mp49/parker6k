@@ -946,8 +946,6 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       } else {
 	*moving = false;
       }
-
-      //TODO: Also read TER status here, as there is more info this status message
       
       //Set MSTA bits
       stat = (setIntegerParam(pC_->motorStatusDone_, 
@@ -964,10 +962,26 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
              (stringVal[P6K_TAS_NEGLIMSOFT_] == pC_->P6K_ON_))) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusHomed_, 
 	     (stringVal[P6K_TAS_HOMED_] == pC_->P6K_ON_)) == asynSuccess) && stat;
-      stat = (setIntegerParam(pC_->motorStatusHomed_, 
-	     (stringVal[P6K_TAS_HOMED_] == pC_->P6K_ON_)) == asynSuccess) && stat;
       stat = (setIntegerParam(pC_->motorStatusPowerOn_, 
 	     (stringVal[P6K_TAS_DRIVE_] == pC_->P6K_OFF_)) == asynSuccess) && stat;
+
+      //Check TLIM uint32_t from controller object for limit switch status
+      //We do this so that the axis object can reflect the limit
+      //switch status even if TAS doesn't reflect limit switch status. 
+      //To disable this, disable polling TLIM in the controller object.
+      int32_t tlim_bits = 0;
+      pC_->getIntegerParam(pC_->P6K_C_TLIM_Bits_, &tlim_bits);
+      if (tlim_bits > 0) {
+	if (tlim_bits & (0x1 << ((axisNo_ - 1)*pC_->P6K_TLIM_SIZE_ + pC_->P6K_TLIM_BIT1_))) {
+	  stat = (setIntegerParam(pC_->motorStatusHighLimit_, 1) == asynSuccess) && stat;
+	}
+	if (tlim_bits & (0x1 << ((axisNo_ - 1)*pC_->P6K_TLIM_SIZE_ + pC_->P6K_TLIM_BIT2_))) {
+	  stat = (setIntegerParam(pC_->motorStatusLowLimit_, 1) == asynSuccess) && stat;
+	}
+	if (tlim_bits & (0x1 << ((axisNo_ - 1)*pC_->P6K_TLIM_SIZE_ + pC_->P6K_TLIM_BIT3_))) {
+	  stat = (setIntegerParam(pC_->motorStatusAtHome_, 1) == asynSuccess) && stat;
+	}
+      }
  
       //Set limit error message for users
       if ((stringVal[P6K_TAS_POSLIM_] == pC_->P6K_ON_) || 
@@ -1001,6 +1015,9 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
 	problem = 1;
       }
 
+      //We only detect drive fault input when a move is attempted.
+      //Unless we also poll extended axis status (TASX), which always 
+      //reports drive fault status.
       if (stringVal[P6K_TAS_DRIVEFAULT_] == pC_->P6K_ON_) {
 	stat = (setIntegerParam(pC_->P6K_A_TAS_DriveFault_, 1) == asynSuccess) && stat;
 	problem = 1;

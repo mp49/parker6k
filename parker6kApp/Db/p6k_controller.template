@@ -79,6 +79,33 @@ record(bo, "$(S):Log")
 }
 
 # ///
+# /// Enable TLIM polling in the controller object
+# /// This reads the state of the hardware limit and home signals
+# /// and populates the TLIM record. It will also set the 
+# /// axis limit and home signals even if we're not moving.
+# ///
+record(bo, "$(S):EnableTLIM")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_TLIM_ENABLE")
+   field(ZNAM, "No")
+   field(ONAM, "Yes")
+   field(VAL,  "0")
+   info(autosaveFields, "VAL")
+}
+
+# ///
+# /// TLIM bits. This will be zero if EnableTLIM is not on.
+# ///
+record(longin, "$(S):TLIM")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_TLIM_BITS")
+   field(SCAN, "I/O Intr")
+}
+
+# ///
 # /// User command
 # ///
 record(waveform, "$(S):Command")
