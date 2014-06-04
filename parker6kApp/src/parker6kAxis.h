@@ -66,6 +66,7 @@ class p6kAxis : public asynMotorAxis
   epicsFloat64 nowTimeSecs_;
   epicsFloat64 lastTimeSecs_; 
   bool printNextError_;
+  bool printErrors_;
   uint32_t driveType_;
   bool commandError_;
   bool axisError_;

@@ -164,6 +164,7 @@ class p6kController : public asynMotorController {
   epicsFloat64 nowTimeSecs_;
   epicsFloat64 lastTimeSecs_;
   bool printNextError_;
+  bool printErrors_;
   double movingPollPeriod_;
   double idlePollPeriod_;
   asynStatus lowLevelWriteRead(const char *command, char *response);

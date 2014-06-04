@@ -101,6 +101,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   movingLastPoll_ = false;
   delayDoneMove_ = false;
   printNextError_ = false;
+  printErrors_ = true;
   commandError_ = false;
   axisError_ = false;
 
@@ -804,9 +805,11 @@ asynStatus p6kAxis::poll(bool *moving)
     
     //Now poll axis status
     if ((status = getAxisStatus(moving)) != asynSuccess) {
-      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
-		"Controller %s Axis %d. %s: getAxisStatus failed to return asynSuccess.\n", 
-		pC_->portName, axisNo_, functionName);
+      if (printErrors_) {
+	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+		  "%s: Controller %s Axis %d. getAxisStatus failed to return asynSuccess.\n", 
+		  functionName, pC_->portName, axisNo_);
+      }
       setStringParam(pC_->P6K_A_Error_, "Problem reading axis status");
       setIntegerParam(pC_->motorStatusCommsError_, 1);
     } else {
@@ -835,7 +838,6 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     bool stat = true;
     int32_t nvals = 0;
     int32_t axisNum = 0;
-    bool printErrors = true;
     int32_t intVal = 0;
     char stringVal[P6K_MAXBUF] = {0};
     bool doneMoving = false;
@@ -852,14 +854,14 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     epicsTimeGetCurrent(&nowTime_);
     nowTimeSecs_ = nowTime_.secPastEpoch;
     if ((nowTimeSecs_ - lastTimeSecs_) < pC_->P6K_ERROR_PRINT_TIME_) {
-      printErrors = 0;
+      printErrors_ = false;
     } else {
-      printErrors = 1;
+      printErrors_ = true;
       lastTimeSecs_ = nowTimeSecs_;
     }
     
     if (printNextError_) {
-      printErrors = 1;
+      printErrors_ = true;
     }
 
     /* Transfer current position and encoder position.*/
@@ -887,9 +889,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TAS);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
     if (stat) {
-      //      printf("  Status response: %s\n", response);
       nvals = sscanf(response, "%d"P6K_CMD_TAS"%s", &axisNum, stringVal);
-      //printf("  Parsed response: %s\n", stringVal);
       if (nvals != 2) {
 	stat = false;
       } 
@@ -897,10 +897,10 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     memset(command, 0, sizeof(command));
 
     if (!stat) {
-      if (printErrors) {
+      if (printErrors_) {
 	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
-		  "ERROR: Problem reading position and status on controller %s, axis %d\n", 
-		  pC_->portName, axisNo_);
+		  "%s: ERROR: Problem reading position and status on controller %s, axis %d\n", 
+		  functionName, pC_->portName, axisNo_);
 	printNextError_ = false;
       }
     } else {
@@ -994,8 +994,6 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
 	axisError_ = true;
 	setStringParam(pC_->P6K_A_Error_, "ERROR: Low Limit");
       }
-      
-      //      cout << "TAS DRIVE BIT: " << stringVal[P6K_TAS_DRIVE_] << endl;
 
       if (driveType_ == P6K_SERVO_) {
 	stat = (setIntegerParam(pC_->motorStatusFollowingError_, 
@@ -1022,7 +1020,8 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
 	stat = (setIntegerParam(pC_->P6K_A_TAS_DriveFault_, 1) == asynSuccess) && stat;
 	problem = 1;
 	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
-		    "ERROR: Drive fault on controller %s, axis %d\n", pC_->portName, axisNo_);
+		  "%s: ERROR: Drive fault on controller %s, axis %d\n", 
+		  functionName, pC_->portName, axisNo_);
       } else {
 	stat = (setIntegerParam(pC_->P6K_A_TAS_DriveFault_, 0) == asynSuccess) && stat;
       }
@@ -1031,7 +1030,8 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
 	stat = (setIntegerParam(pC_->P6K_A_TAS_Timeout_, 1) == asynSuccess) && stat;
 	problem = 1;
 	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
-		    "ERROR: Target timeout on controller %s, axis %d\n", pC_->portName, axisNo_);
+		    "%s: ERROR: Target timeout on controller %s, axis %d\n", 
+		  functionName, pC_->portName, axisNo_);
       } else {
 	stat = (setIntegerParam(pC_->P6K_A_TAS_Timeout_, 0) == asynSuccess) && stat;
       }
@@ -1040,7 +1040,8 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
 	stat = (setIntegerParam(pC_->P6K_A_TAS_PosErr_, 1) == asynSuccess) && stat;
 	problem = 1;
 	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
-		    "ERROR: Position error on controller %s, axis %d\n", pC_->portName, axisNo_);
+		  "%s: ERROR: Position error on controller %s, axis %d\n", 
+		  functionName, pC_->portName, axisNo_);
       } else {
 	stat = (setIntegerParam(pC_->P6K_A_TAS_PosErr_, 0) == asynSuccess) && stat;
       }
@@ -1052,9 +1053,10 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       }
 
       if (!stat) {
-	if (printErrors) {
+	if (printErrors_) {
 	  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
-		    "ERROR: Problem setting params on controller %s, axis %d\n", pC_->portName, axisNo_);
+		    "%s: ERROR: Problem setting params on controller %s, axis %d\n", 
+		    functionName, pC_->portName, axisNo_);
 	  printNextError_ = false;
 	}
       }
@@ -1062,6 +1064,11 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     
     //Clear error print flag for this axis if problem has been removed.
     if (stat) {
+      if (!printErrors_) {
+	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+		  "%s Problem cleared on controller %s, axis %d\n", 
+		  functionName, pC_->portName, axisNo_);
+      }
       printNextError_ = true;
       return asynSuccess;
     }

@@ -38,7 +38,7 @@ static const char *driverName = "parker6k";
 const epicsUInt32 p6kController::P6K_MAXBUF_ = P6K_MAXBUF;
 const epicsUInt32 p6kController::P6K_MAXAXES_ = 8;
 const epicsFloat64 p6kController::P6K_TIMEOUT_ = 5.0;
-const epicsUInt32 p6kController::P6K_ERROR_PRINT_TIME_ = 1; //seconds (this should be set larger when we finish debugging)
+const epicsUInt32 p6kController::P6K_ERROR_PRINT_TIME_ = 600; //seconds (this should be set larger when we finish debugging)
 const epicsUInt32 p6kController::P6K_FORCED_FAST_POLLS_ = 10;
 const epicsUInt32 p6kController::P6K_OK_ = 0;
 const epicsUInt32 p6kController::P6K_ERROR_ = 1;
@@ -105,6 +105,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   nowTimeSecs_ = 0.0;
   lastTimeSecs_ = 0.0;
   printNextError_ = false;
+  printErrors_ = true;
 
   pAxes_ = (p6kAxis **)(asynMotorController::pAxes_);
 
@@ -311,7 +312,6 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
   int32_t eomReason = 0;
   size_t nwrite = 0;
   size_t nread = 0;
-  //int32_t commsError = 0;
   char temp[P6K_MAXBUF_] = {0};
   static const char *functionName = "p6kController::lowLevelWriteRead";
 
@@ -331,10 +331,6 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
     printf("%s > %s\n", this->portName, command);
   }
 
-  //Make sure the low level port is connected before we attempt comms
-  //Use the controller-wide param P6K_C_CommsError_
-  //getIntegerParam(P6K_C_CommsError_, &commsError);
-
   memset(response, 0, sizeof(response));
   
   stat = (pasynOctetSyncIO->writeRead(lowLevelPortUser_ ,
@@ -344,9 +340,11 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
 				       &nwrite, &nread, &eomReason ) == asynSuccess) && stat;
   
   if (!stat) {
-    asynPrint(lowLevelPortUser_, ASYN_TRACE_ERROR, 
-	      "%s: Error from pasynOctetSyncIO->writeRead. command: %s\n", 
-	      functionName, command);
+    if (printErrors_) {
+      asynPrint(lowLevelPortUser_, ASYN_TRACE_ERROR, 
+		"%s: Error from pasynOctetSyncIO->writeRead. command: %s\n", 
+		functionName, command);
+    }
     setIntegerParam(P6K_C_CommsError_, P6K_ERROR_);
   } else {
     setIntegerParam(P6K_C_CommsError_, P6K_OK_);
@@ -450,8 +448,10 @@ asynStatus p6kController::trimResponse(char *input, char *output)
     if (pTrailer != NULL) {
       *pTrailer = '\0';
     } else {
-      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
-		"%s Could not find correct trailer.\n", functionName);
+      if (printErrors_) {
+	asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		  "%s Could not find correct trailer.\n", functionName);
+      }
       status = asynError;
     }
   }
@@ -709,7 +709,6 @@ asynStatus p6kController::poll()
   char response[P6K_MAXBUF] = {0};
   bool stat = true;
   int32_t nvals = 0;
-  bool printErrors = 0;
   char stringVal[P6K_MAXBUF] = {0};
   static const char *functionName = "p6kController::poll";
 
@@ -723,16 +722,16 @@ asynStatus p6kController::poll()
   epicsTimeGetCurrent(&nowTime_);
   nowTimeSecs_ = nowTime_.secPastEpoch;
   if ((nowTimeSecs_ - lastTimeSecs_) < P6K_ERROR_PRINT_TIME_) {
-    printErrors = 0;
+    printErrors_ = false;
   } else {
-    printErrors = 1;
+    printErrors_ = true;
     lastTimeSecs_ = nowTimeSecs_;
   }
 
   if (printNextError_) {
-    printErrors = 1;
+    printErrors_ = true;
   }
-  
+
   //Set any controller specific parameters. 
   //Some of these may be used by the axis poll to set axis bits.
 
@@ -780,7 +779,7 @@ asynStatus p6kController::poll()
   callParamCallbacks();
 
   if (!stat) {
-    if (printErrors) {
+    if (printErrors_) {
       asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
 		"%s: ERROR: Problem reading status on controller %s\n", 
 		functionName, this->portName);
@@ -790,6 +789,11 @@ asynStatus p6kController::poll()
     printNextError_ = false;
     return asynError;
   } else {
+    if (!printErrors_) {
+      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		"%s: Problem cleared on controller %s\n", 
+		functionName, this->portName);
+    }
     setIntegerParam(P6K_C_CommsError_, P6K_OK_);
     setStringParam(P6K_C_Error_, " ");
     printNextError_ = true;
