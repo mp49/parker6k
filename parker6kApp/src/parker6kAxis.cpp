@@ -105,6 +105,12 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   commandError_ = false;
   axisError_ = false;
 
+  p6k_cmddir_ = 0;
+  p6k_drfen_ = 0;
+  p6k_encpol_ = 0;
+  p6k_esk_ = 0;
+  p6k_estall_ = 0;
+
   /* Set an EPICS exit handler that will shut down polling before asyn kills the IP sockets */
   epicsAtExit(shutdownCallback, pC_);
 
@@ -176,7 +182,9 @@ asynStatus p6kAxis::readIntParam(const char *cmd, epicsUInt32 param, uint32_t *v
     epicsSnprintf(scan,  P6K_MAXBUF, "%%d%s%%d", cmd);
     nvals = sscanf(response, scan, &axisNum, val);    
     if (nvals == 2) {
-      setIntegerParam(param, *val);
+      if (param != 0) {
+	setIntegerParam(param, *val);
+      }
       status = asynSuccess;
     } else {
       status = asynError;
@@ -219,7 +227,9 @@ asynStatus p6kAxis::readDoubleParam(const char *cmd, epicsUInt32 param, double *
     epicsSnprintf(scan,  P6K_MAXBUF, "%%d%s%%lf", cmd);
     nvals = sscanf(response, scan, &axisNum, val);
     if (nvals == 2) {
-      setDoubleParam(param, *val);
+      if (param != 0) {
+	setDoubleParam(param, *val);
+      }
       status = asynSuccess;
     } else {
       status = asynError;
@@ -265,6 +275,12 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
     stat = (readDoubleParam(P6K_CMD_LSPOS, pC_->motorHighLimit_, &doubleVal) == asynSuccess) && stat;
     stat = (readDoubleParam(P6K_CMD_LSNEG, pC_->motorLowLimit_, &doubleVal) == asynSuccess) && stat;
 
+    //Read some params that don't need to go in paramLib.
+    stat = (readIntParam(P6K_CMD_CMDDIR, 0, &p6k_cmddir_) == asynSuccess) && stat;
+    stat = (readIntParam(P6K_CMD_DRFEN,  0, &p6k_drfen_) == asynSuccess) && stat;
+    stat = (readIntParam(P6K_CMD_ENCPOL, 0, &p6k_encpol_) == asynSuccess) && stat;
+    stat = (readIntParam(P6K_CMD_ESK,    0, &p6k_esk_) == asynSuccess) && stat;
+    stat = (readIntParam(P6K_CMD_ESTALL, 0, &p6k_estall_) == asynSuccess) && stat;
   }
 
   if (!stat) {
@@ -306,14 +322,19 @@ void p6kAxis::printAxisParams(void)
   } else {
     printf("  Unknown Drive Type\n");
   }
-  pC_->getIntegerParam(axisNo_, pC_->motorStatusPowerOn_, &intVal);
-  printf("  "P6K_CMD_DRIVE": %d\n", intVal);
+  printf("  "P6K_CMD_CMDDIR": %d\n", p6k_cmddir_);
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_DRES_, &intVal);  
   printf("  "P6K_CMD_DRES": %d\n", intVal);
+  printf("  "P6K_CMD_DRFEN": %d\n", p6k_drfen_);
+  pC_->getIntegerParam(axisNo_, pC_->motorStatusPowerOn_, &intVal);
+  printf("  "P6K_CMD_DRIVE": %d\n", intVal);
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_ERES_, &intVal);
   printf("  "P6K_CMD_ERES": %d\n", intVal);
   pC_->getIntegerParam(axisNo_, pC_->motorStatusHasEncoder_, &intVal);
   printf("  "P6K_CMD_ENCCNT": %d\n", intVal);
+  printf("  "P6K_CMD_ENCPOL": %d\n", p6k_encpol_);
+  printf("  "P6K_CMD_ESK": %d\n", p6k_esk_);
+  printf("  "P6K_CMD_ESTALL": %d\n", p6k_estall_);
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_LS_, &intVal);
   printf("  "P6K_CMD_LS": %d\n", intVal);
   if (static_cast<epicsUInt32>(intVal) != P6K_LIM_ENABLE_) {
@@ -972,25 +993,22 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       //NOTE: I don't check LIMLVL. I assume we are using fail safe inputs
       //so that 1=not activated, and 0=activated.
       int32_t tlim_bits = 0;
-      int32_t lh = 0;
       int32_t tlim_size = 0;
       pC_->getIntegerParam(pC_->P6K_C_TLIM_Bits_, &tlim_bits);
-      pC_->getIntegerParam(axisNo_, pC_->P6K_A_LH_, &lh);
-      if (lh != 0) {
-	if (tlim_bits > 0) {
-	  tlim_size = (axisNo_ - 1)*pC_->P6K_TLIM_SIZE_;
-	  if ((tlim_bits & (0x1 << (tlim_size + pC_->P6K_TLIM_BIT1_))) == 0) {
-	    stat = (setIntegerParam(pC_->motorStatusHighLimit_, 1) == asynSuccess) && stat;
-	  }
-	  if ((tlim_bits & (0x1 << (tlim_size + pC_->P6K_TLIM_BIT2_))) == 0) {
-	    stat = (setIntegerParam(pC_->motorStatusLowLimit_, 1) == asynSuccess) && stat;
-	  }
-	  if ((tlim_bits & (0x1 << (tlim_size + pC_->P6K_TLIM_BIT3_))) == 1) {
-	    stat = (setIntegerParam(pC_->motorStatusAtHome_, 1) == asynSuccess) && stat;
-	  }
+      stat = (setIntegerParam(pC_->motorStatusAtHome_, 0) == asynSuccess) && stat;
+      if (tlim_bits > 0) {
+	tlim_size = (axisNo_ - 1)*pC_->P6K_TLIM_SIZE_;
+	if ((tlim_bits & (0x1 << (tlim_size + pC_->P6K_TLIM_BIT1_))) == 0) {
+	  stat = (setIntegerParam(pC_->motorStatusHighLimit_, 1) == asynSuccess) && stat;
+	}
+	if ((tlim_bits & (0x1 << (tlim_size + pC_->P6K_TLIM_BIT2_))) == 0) {
+	  stat = (setIntegerParam(pC_->motorStatusLowLimit_, 1) == asynSuccess) && stat;
+	}
+	if (tlim_bits & (0x1 << (tlim_size + pC_->P6K_TLIM_BIT3_))) {
+	  stat = (setIntegerParam(pC_->motorStatusAtHome_, 1) == asynSuccess) && stat;
 	}
       }
- 
+      
       //Set limit error message for users
       if ((stringVal[P6K_TAS_POSLIM_] == pC_->P6K_ON_) || 
 	  (stringVal[P6K_TAS_POSLIMSOFT_] == pC_->P6K_ON_)) {

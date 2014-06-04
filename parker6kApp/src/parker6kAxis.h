@@ -71,6 +71,12 @@ class p6kAxis : public asynMotorAxis
   bool commandError_;
   bool axisError_;
 
+  uint32_t p6k_cmddir_;
+  uint32_t p6k_drfen_;
+  uint32_t p6k_encpol_;
+  uint32_t p6k_esk_;
+  uint32_t p6k_estall_;
+
   static const epicsUInt32 P6K_TAS_MOVING_;
   static const epicsUInt32 P6K_TAS_DIRECTION_;
   static const epicsUInt32 P6K_TAS_ACCELERATING_;
