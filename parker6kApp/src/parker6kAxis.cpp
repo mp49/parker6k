@@ -969,17 +969,25 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       //We do this so that the axis object can reflect the limit
       //switch status even if TAS doesn't reflect limit switch status. 
       //To disable this, disable polling TLIM in the controller object.
+      //NOTE: I don't check LIMLVL. I assume we are using fail safe inputs
+      //so that 1=not activated, and 0=activated.
       int32_t tlim_bits = 0;
+      int32_t lh = 0;
+      int32_t tlim_size = 0;
       pC_->getIntegerParam(pC_->P6K_C_TLIM_Bits_, &tlim_bits);
-      if (tlim_bits > 0) {
-	if (tlim_bits & (0x1 << ((axisNo_ - 1)*pC_->P6K_TLIM_SIZE_ + pC_->P6K_TLIM_BIT1_))) {
-	  stat = (setIntegerParam(pC_->motorStatusHighLimit_, 1) == asynSuccess) && stat;
-	}
-	if (tlim_bits & (0x1 << ((axisNo_ - 1)*pC_->P6K_TLIM_SIZE_ + pC_->P6K_TLIM_BIT2_))) {
-	  stat = (setIntegerParam(pC_->motorStatusLowLimit_, 1) == asynSuccess) && stat;
-	}
-	if (tlim_bits & (0x1 << ((axisNo_ - 1)*pC_->P6K_TLIM_SIZE_ + pC_->P6K_TLIM_BIT3_))) {
-	  stat = (setIntegerParam(pC_->motorStatusAtHome_, 1) == asynSuccess) && stat;
+      pC_->getIntegerParam(axisNo_, pC_->P6K_A_LH_, &lh);
+      if (lh != 0) {
+	if (tlim_bits > 0) {
+	  tlim_size = (axisNo_ - 1)*pC_->P6K_TLIM_SIZE_;
+	  if ((tlim_bits & (0x1 << (tlim_size + pC_->P6K_TLIM_BIT1_))) == 0) {
+	    stat = (setIntegerParam(pC_->motorStatusHighLimit_, 1) == asynSuccess) && stat;
+	  }
+	  if ((tlim_bits & (0x1 << (tlim_size + pC_->P6K_TLIM_BIT2_))) == 0) {
+	    stat = (setIntegerParam(pC_->motorStatusLowLimit_, 1) == asynSuccess) && stat;
+	  }
+	  if ((tlim_bits & (0x1 << (tlim_size + pC_->P6K_TLIM_BIT3_))) == 1) {
+	    stat = (setIntegerParam(pC_->motorStatusAtHome_, 1) == asynSuccess) && stat;
+	  }
 	}
       }
  
