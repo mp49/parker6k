@@ -19,6 +19,8 @@
 # Build settings that are NOT module paths should appear in a
 # CONFIG_SITE file.
 
+TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
+
 EPICS=/home/controls/epics/R3.14.12.2
 SUPPORT=$(EPICS)/support
 
