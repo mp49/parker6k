@@ -3,9 +3,6 @@
 
 \mainpage Parker 6K Controller Epics Driver.
 \section user User Guide
-May 2014
-
-Developed at SNS in 2014 by Matt Pearson.
 
 \subsection intro Introduction
 
@@ -51,6 +48,8 @@ In order to set the position on an axis:
 By setting the position to zero, the user can perform a manual home
 on a limit switch for example (which the controller does not support).
 
+It may be necessary to set ERES again before setting the position (or toggle UEIP).
+
 \subsection startup IOC Startup File
 
 There is an example IOC in parker6k/example that
@@ -88,10 +87,13 @@ COMEXC1<br>
 1DRES25000<br>
 1ERES4000<br>
 1ENCCNT1<br>
+1ESTALL1<br>
+1ESK1<br>
 1LH0<br>
 2DRES25000<br>
 2ERES4000<br>
 2LH0<br>
+2DRFEN1<br>
 LIMLVL001000000000<br>
 </code>
 
@@ -197,10 +199,9 @@ The module was developed using:
 In addition, the example IOC was built to include support
 for autosave and devIocStats.
 
-In parker6k/example/test there are some Python test scripts that were
-developed for testing the example IOC using two stepper motors. These 
-may not be very useful outside of the SNS. They require the 
-<a href=http://controls.diamond.ac.uk/downloads/python/cothread/>cothread</a>
-library from Diamond Light Source.
+
+\subsection Contributions
+
+Originally developed at SNS in 2014 by Matt Pearson.
 
 */
