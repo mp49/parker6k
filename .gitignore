@@ -2,7 +2,6 @@
 bin/
 db/
 dbd/
-html/
 include/
 lib/
 templates/

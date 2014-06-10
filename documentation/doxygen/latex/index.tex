@@ -1,0 +1,137 @@
+\hypertarget{index_user}{}\section{User Guide}\label{index_user}
+May 2014
+
+Developed at SNS in 2014 by Matt Pearson.\hypertarget{index_intro}{}\subsection{Introduction}\label{index_intro}
+The parker6k driver enables control of a Parker 6K controller via the EPICS motor record.
+
+This is the Asyn 'model3' version which has a number of advantages over the model 1 driver:
+
+
+\begin{DoxyItemize}
+\item Detect motion outside of a normal move command 
+\item Reflect error conditions in the motor record alarm fields 
+\item Control and read controller-\/wide information 
+\item Additonal axis specific capabilities outside of the motor record 
+\item Easy debugging (asyn record, low level commands via waveform PVs, custom logging). 
+\item Adjustable polling rates 
+\item Ability to set both motor and encoder position 
+\end{DoxyItemize}\hypertarget{index_notes}{}\subsubsection{Notes}\label{index_notes}
+The driver has been tested on stepper drives (with and without encoders) using a 4-\/axis compumotor controller. The driver has not been tested with servo drives.
+
+The move function automatically sets up the S-\/curve parameters at the start of the move (similar to model 1 driver). It uses half the acceleration rate for the jerk parameters (AA, ADA).
+
+The home function uses the home velocity before executing the home (HOM). It is expected that the controller home parameters have already been configured (eg. HOMZ). NOTE: for encoder based systems the controller does not reset the encoder position on a successful home. Currently the user must do this after a home.
+
+In order to set the position on an axis: 
+\begin{DoxyEnumerate}
+\item set SET field to 1 
+\item set DVAL to desired position 
+\item set OFF back to what it was 
+\item set SET back to 0 
+\end{DoxyEnumerate}
+
+By setting the position to zero, the user can perform a manual home on a limit switch for example (which the controller does not support).\hypertarget{index_startup}{}\subsection{IOC Startup File}\label{index_startup}
+There is an example IOC in parker6k/example that demonstrates how to use the driver. There are several IOC startup file commands required:
+
+{\ttfamily  \# Connect TCP socket to controller:\par
+ drvAsynIPPortConfigure(\char`\"{}6K\char`\"{},\char`\"{}192.168.200.177:4001\char`\"{},0,0,0)\par
+}
+
+{\ttfamily \# Create 'controller' object\par
+ \# Arguments:\par
+ \# Port name\par
+ \# Low level comms port name\par
+ \# Low level comms port addr\par
+ \# Number of axes (1 based, including un-\/used axes)\par
+ \# Moving polling rate\par
+ \# Idle polling rate\par
+ p6kCreateController(\char`\"{}P6K\char`\"{},\char`\"{}6K\char`\"{},0,2,500,1000)\par
+}
+
+{\ttfamily \# Optionally upload a controller configuration\par
+ \# Arguments:\par
+ \# Controller port name\par
+ \# Full path for file\par
+ p6kUpload(\char`\"{}P6K\char`\"{}, \char`\"{}/home/controls/motion/bl1a/mcc1/config\char`\"{})\par
+ }
+
+The above file must only contain a list of commands with a newline separating each command.
+
+For example: {\ttfamily \par
+ ECHO0\par
+ COMEXC1\par
+ 1DRES25000\par
+ 1ERES4000\par
+ 1ENCCNT1\par
+ 1LH0\par
+ 2DRES25000\par
+ 2ERES4000\par
+ 2LH0\par
+ LIMLVL001000000000\par
+ }
+
+It is not necessary to upload a controller config file, but it is advantageous to do so in order to easily recover after a power cycle. Otherwise there must be a manual step to configure the controller before running the IOC.
+
+After instantiating the controller object and uploading a config the axis objects must be created:
+
+{\ttfamily  \# Create 'axis' objects\par
+ \# Arguments:\par
+ \# Controller port name\par
+ \# Axis number (must be $<$=number of axes passed into controller object)\par
+ p6kCreateAxis(\char`\"{}P6K\char`\"{},1)\par
+ p6kCreateAxis(\char`\"{}P6K\char`\"{},2)\par
+ etc. }\hypertarget{index_src_makefile}{}\subsection{IOC src/Makefile}\label{index_src_makefile}
+It is only necessary to include this dbd file:
+
+{\ttfamily  parker6kSupport.dbd }
+
+and this library:
+
+{\ttfamily  parker6kSupport }\hypertarget{index_records}{}\subsection{Additonal database records}\label{index_records}
+The driver can be used with a standard 'asynMotor' motor record. However, it is useful to combine this with several other records to provide functions like:
+
+
+\begin{DoxyItemize}
+\item disabling the motor record 
+\item automatic amplifier power control 
+\item access to driver parameters that are not mapped to motor record fields. 
+\end{DoxyItemize}
+
+To provide these records there are database template files in parker6k:
+
+{\ttfamily p6k\_\-controller.template} -\/ for controller specific control/parameters\par
+ {\ttfamily p6k\_\-axis.template} -\/ for axis specific control/parameters\par
+
+
+There are several functions provided by these templates:
+
+p6k\_\-controller.template: 
+\begin{DoxyItemize}
+\item Read controller error messages and comms errors 
+\item Read state of initial controller config 
+\item Enable simple logging (via stdout) of commands sent to controller 
+\item Deferred moves control 
+\item Low level command/response capability 
+\item An asyn record for debugging and enabling tracing. 
+\end{DoxyItemize}
+
+p6k\_\-axis.template: 
+\begin{DoxyItemize}
+\item Disable motor record if we are in comms error. Usually this is because we have lost network connection or the controller has been power cycled. By default the driver will not automatically reconnect to the controller (Asyn IP port auto reconnect has been turned off). This is because it can be dangerous for a user to move a mis-\/configured controller. At the very least it can mess up auto save settings by making changes that are autosaved and not able to be reflected on the controller. 
+\item Set a delay time for the driver to indicate 'done moving'. This can be useful to take into account setting time between each move. NOTE: this is different from the motor record DLY if the motor record is doing additional moves like backlash or retries. 
+\item Read axis specific error messages. 
+\item Enable automatic drive enable at the start of each move (with an optional delay time between enabling the amplifier and the start of the move). 
+\item Enable automatic drive disable at the end of the move (with an optional delay time between the end of the move and drive disable). This is implemented in database logic due to the possibility of the motor record doing mutliple moves (so we use DMOV transitions to implement this). 
+\end{DoxyItemize}\hypertarget{index_building}{}\subsection{Building and Testing}\label{index_building}
+You may need to modify the files in the top level configure directory for your local site, especially the RELEASE file.
+
+The module was developed using: 
+\begin{DoxyItemize}
+\item EPICS BASE 3.14.12.2 
+\item ASYN 4-\/22 
+\item MOTOR 6-\/8 
+\end{DoxyItemize}
+
+In addition, the example IOC was built to include support for autosave and devIocStats.
+
+In parker6k/example/test there are some Python test scripts that were developed for testing the example IOC using two stepper motors. These may not be very useful outside of the SNS. They require the \href{http://controls.diamond.ac.uk/downloads/python/cothread/}{\tt cothread} library from Diamond Light Source. 
