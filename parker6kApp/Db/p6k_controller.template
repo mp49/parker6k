@@ -132,6 +132,59 @@ record(longin, "$(S):TOUT")
 }
 
 # ///
+# /// Enable or disable all OUT bits.
+# ///
+record(bo, "$(S):EnableOUT")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_OUT_ALL")
+   field(ZNAM, "All Off")
+   field(ONAM, "All On")
+   field(VAL,  "0")
+   info(autosaveFields, "VAL")
+}
+
+# ///
+# /// Set an OUT bit to control
+# ///
+record(mbbo, "$(S):OUTBit")
+{
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_OUT_BIT")
+   field(ZRST, "OUT 1")
+   field(ZRVL, "1")
+   field(ONST, "OUT 2")
+   field(ONVL, "2")
+   field(TWST, "OUT 3")
+   field(TWVL, "3")
+   field(THST, "OUT 4")
+   field(THVL, "4")
+   field(FRST, "OUT 5")
+   field(FRVL, "5")
+   field(FVST, "OUT 6")
+   field(FVVL, "6")
+   field(SXST, "OUT 7")
+   field(SXVL, "7")
+   field(SVST, "OUT 8")
+   field(SVVL, "8")
+}
+
+# ///
+# /// Set an OUT bit to on/off. 
+# /// This controls the bit chosen by $(S):OUTBit.
+# ///
+record(bo, "$(S):OUTVal")
+{
+   field(PINI, "NO")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_OUT_VAL")
+   field(ZNAM, "Off")
+   field(ONAM, "On")
+   field(VAL,  "0")
+}
+
+# ///
 # /// User command
 # ///
 record(waveform, "$(S):Command")

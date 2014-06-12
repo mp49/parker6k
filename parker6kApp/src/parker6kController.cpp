@@ -49,6 +49,7 @@ const char * p6kController::P6K_ASYN_OEOS_ = "\n";
 
 const char p6kController::P6K_ON_       = '1';
 const char p6kController::P6K_OFF_      = '0';
+const char p6kController::P6K_NOCHANGE_ = 'X';
 
 //TSS Status Bits (position in char array, not TSS bit position) 
 const epicsUInt32 p6kController::P6K_TSS_SYSTEMREADY_ = 0;
@@ -132,6 +133,9 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_C_TLIM_BitsString,        asynParamInt32, &P6K_C_TLIM_Bits_);
   createParam(P6K_C_TOUT_EnableString,      asynParamInt32, &P6K_C_TOUT_Enable_);
   createParam(P6K_C_TOUT_BitsString,        asynParamInt32, &P6K_C_TOUT_Bits_);
+  createParam(P6K_C_OUT_BitString,          asynParamInt32, &P6K_C_OUT_Bit_);
+  createParam(P6K_C_OUT_ValString,          asynParamInt32, &P6K_C_OUT_Val_);
+  createParam(P6K_C_OUT_AllString,          asynParamInt32, &P6K_C_OUT_All_);
   createParam(P6K_C_LastParamString,        asynParamInt32, &P6K_C_LastParam_);
 
   //Create axis specific parameters
@@ -211,7 +215,9 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
     paramStatus = ((setIntegerParam(P6K_C_TLIM_Bits_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TOUT_Enable_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TOUT_Bits_, 0) == asynSuccess) && paramStatus);
-
+    paramStatus = ((setIntegerParam(P6K_C_OUT_Bit_, 1) == asynSuccess) && paramStatus);
+    paramStatus = ((setIntegerParam(P6K_C_OUT_Val_, 0) == asynSuccess) && paramStatus);
+    paramStatus = ((setIntegerParam(P6K_C_OUT_All_, 0) == asynSuccess) && paramStatus);
     callParamCallbacks();
 
     if (!paramStatus) {
@@ -576,6 +582,21 @@ asynStatus p6kController::writeInt32(asynUser *pasynUser, epicsInt32 value)
 		functionName, pAxis->axisNo_);
       value = 0;
     }
+  } else if (function == P6K_C_OUT_Bit_) {
+    if ((value < 1) || (value > 8)) {
+      asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		"%s: ERROR: forcing OUT bit to be 1. Axis %d\n", 
+		functionName, pAxis->axisNo_);
+      status = false;
+    }
+  } else if (function == P6K_C_OUT_Val_) {
+    if (value != 0) value = 1;
+    int32_t bit = 0;
+    getIntegerParam(P6K_C_OUT_Bit_, &bit);
+    status = (setDigitalOutput(bit, value) == asynSuccess) && status;
+  } else if (function == P6K_C_OUT_All_) {
+    if (value != 0) value = 1;
+    status = (setDigitalOutputs(value) == asynSuccess) && status;
   }
 
   status = (pAxis->setIntegerParam(function, value) == asynSuccess) && status;
@@ -593,6 +614,79 @@ asynStatus p6kController::writeInt32(asynUser *pasynUser, epicsInt32 value)
   return asynSuccess;
 
 }
+
+/**
+ * Set a digital output. Leave the rest unchanged.
+ * @param bit (1 to 8)
+ * @param enable (0=off, 1=on)
+ * @return asynStatus
+ */
+asynStatus p6kController::setDigitalOutput(epicsInt32 bit, epicsInt32 enable)
+{
+  char out_cmd[P6K_MAXBUF_] = {0};
+  char command[P6K_MAXBUF_] = {0};
+  char response[P6K_MAXBUF_] = {0};  
+  bool stat = true;
+
+  const char *functionName = "parker6kController::setDigitalOutput";
+  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s.\n", functionName);
+
+  for (uint32_t axis=1; axis<P6K_MAXAXES_; ++axis) {
+    if (axis == static_cast<uint32_t>(bit)) {
+      if (enable == 1) {
+	out_cmd[axis-1] = P6K_ON_;
+      } else {
+	out_cmd[axis-1] = P6K_OFF_;
+      }
+    } else {
+      	out_cmd[axis-1] = P6K_NOCHANGE_;
+    }
+  }
+
+  epicsSnprintf(command, P6K_MAXBUF_, "%s%s", P6K_CMD_OUT, out_cmd);
+  stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
+  if (!stat) {
+    asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+	      "%s: ERROR: failed to set bit %d %s\n", 
+	      functionName, bit, (enable ? "on" : "off"));
+    return asynError;
+  }
+
+  return asynSuccess;
+}
+
+
+/**
+ * Set all digital outputs on or off.
+ * @param enable (0=all off, 1=all on)
+ * @return asynStatus
+ */
+asynStatus p6kController::setDigitalOutputs(epicsInt32 enable)
+{
+  char command[P6K_MAXBUF_] = {0};
+  char response[P6K_MAXBUF_] = {0};  
+  bool stat = true;
+
+  const char *functionName = "parker6kController::setDigitalOutputs";
+  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s.\n", functionName);
+
+  if (enable == 1) {
+    epicsSnprintf(command, P6K_MAXBUF_, "%s%s", P6K_CMD_OUT, "11111111");
+  } else {
+    epicsSnprintf(command, P6K_MAXBUF_, "%s%s", P6K_CMD_OUT, "00000000");
+  }
+
+  stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
+  if (!stat) {
+    asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+	      "%s: ERROR: failed to set all bits %s\n", 
+	      functionName, (enable ? "on" : "off")); 
+    return asynError;
+  }
+
+  return asynSuccess;
+}
+
 
 /**
  * Deal with controller specific asynOctet params.
