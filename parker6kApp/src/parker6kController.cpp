@@ -63,6 +63,10 @@ const epicsUInt32 p6kController::P6K_TLIM_BIT2_ = 1;
 const epicsUInt32 p6kController::P6K_TLIM_BIT3_ = 2;
 const epicsUInt32 p6kController::P6K_TLIM_SIZE_ = 4;
 
+//OUT Bits (position of the two 4 axis blocks in the TOUT command)
+const epicsUInt32 p6kController::P6K_TOUT_BITS1_ = 0;
+const epicsUInt32 p6kController::P6K_TOUT_BITS2_ = 5;
+
 //C function prototypes, for the functions that can be called on IOC shell.
 extern "C" {
   asynStatus p6kCreateController(const char *portName, const char *lowLevelPortName, int lowLevelPortAddress, 
@@ -126,6 +130,8 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_C_TSS_MemErrorString,     asynParamInt32, &P6K_C_TSS_MemError_);
   createParam(P6K_C_TLIM_EnableString,      asynParamInt32, &P6K_C_TLIM_Enable_);
   createParam(P6K_C_TLIM_BitsString,        asynParamInt32, &P6K_C_TLIM_Bits_);
+  createParam(P6K_C_TOUT_EnableString,      asynParamInt32, &P6K_C_TOUT_Enable_);
+  createParam(P6K_C_TOUT_BitsString,        asynParamInt32, &P6K_C_TOUT_Bits_);
   createParam(P6K_C_LastParamString,        asynParamInt32, &P6K_C_LastParam_);
 
   //Create axis specific parameters
@@ -203,6 +209,8 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
     paramStatus = ((setIntegerParam(P6K_C_TSS_MemError_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TLIM_Enable_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TLIM_Bits_, 0) == asynSuccess) && paramStatus);
+    paramStatus = ((setIntegerParam(P6K_C_TOUT_Enable_, 0) == asynSuccess) && paramStatus);
+    paramStatus = ((setIntegerParam(P6K_C_TOUT_Bits_, 0) == asynSuccess) && paramStatus);
 
     callParamCallbacks();
 
@@ -709,6 +717,8 @@ asynStatus p6kController::poll()
   char response[P6K_MAXBUF] = {0};
   bool stat = true;
   int32_t nvals = 0;
+  int32_t offset = 0;
+  int32_t bits = 0;
   char stringVal[P6K_MAXBUF] = {0};
   static const char *functionName = "p6kController::poll";
 
@@ -737,8 +747,8 @@ asynStatus p6kController::poll()
 
   //Transfer limit and home status and pack into uint32_t.
   int32_t tlim = 0;
-  int32_t tlim_bits = 0;
-  int32_t tlim_offset = 0;
+  bits = 0;
+  offset = 0;
   getIntegerParam(P6K_C_TLIM_Enable_, &tlim);
   setIntegerParam(P6K_C_TLIM_Bits_, 0);
   if (tlim == 1) {
@@ -748,13 +758,35 @@ asynStatus p6kController::poll()
       nvals = sscanf(response, P6K_CMD_TLIM"%s", stringVal);
       for (uint32_t axis=0; axis<P6K_MAXAXES_; ++axis) {
 	for (uint32_t bit=0; bit<P6K_TLIM_SIZE_; ++bit) {
-	  tlim_offset = bit + (P6K_TLIM_SIZE_ * axis);
-	  if (tlim_offset < P6K_MAXBUF_) { 
-	    tlim_bits |= ((stringVal[tlim_offset] == P6K_ON_) << tlim_offset);
+	  offset = bit + (P6K_TLIM_SIZE_ * axis);
+	  if (offset < P6K_MAXBUF_) { 
+	    bits |= ((stringVal[offset] == P6K_ON_) << offset);
 	  }
 	}
       }
-      stat = (setIntegerParam(P6K_C_TLIM_Bits_, tlim_bits) == asynSuccess) && stat;
+      stat = (setIntegerParam(P6K_C_TLIM_Bits_, bits) == asynSuccess) && stat;
+    }
+    memset(command, 0, sizeof(command));
+    memset(stringVal, 0, sizeof(stringVal));
+  }
+
+  int32_t tout = 0;
+  bits = 0;
+  offset = 0;
+  getIntegerParam(P6K_C_TOUT_Enable_, &tout);
+  setIntegerParam(P6K_C_TOUT_Bits_, 0);
+  if (tout == 1) {
+    epicsSnprintf(command, P6K_MAXBUF, "%s", P6K_CMD_TOUT);
+    stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    if (stat) {
+      nvals = sscanf(response, P6K_CMD_TOUT"%s", stringVal);
+      for (uint32_t axis=0; axis<P6K_MAXAXES_; ++axis) {
+	if (axis == P6K_TOUT_BITS2_-1) {
+	  offset = 1;
+	}
+	bits |= ((stringVal[axis + offset] == P6K_ON_) << axis);
+      }
+      stat = (setIntegerParam(P6K_C_TOUT_Bits_, bits) == asynSuccess) && stat;
     }
     memset(command, 0, sizeof(command));
     memset(stringVal, 0, sizeof(stringVal));
