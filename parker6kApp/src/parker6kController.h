@@ -33,6 +33,11 @@
 #define P6K_C_TSS_MemErrorString    "P6K_C_TSS_MEMERROR"
 #define P6K_C_TLIM_EnableString     "P6K_C_TLIM_ENABLE"
 #define P6K_C_TLIM_BitsString       "P6K_C_TLIM_BITS"
+#define P6K_C_TOUT_EnableString     "P6K_C_TOUT_ENABLE"
+#define P6K_C_TOUT_BitsString       "P6K_C_TOUT_BITS"
+#define P6K_C_OUT_BitString         "P6K_C_OUT_BIT"
+#define P6K_C_OUT_ValString         "P6K_C_OUT_VAL"
+#define P6K_C_OUT_AllString         "P6K_C_OUT_ALL"
 
 //Axis specific parameters
 #define P6K_A_DRESString       "P6K_A_DRES"
@@ -85,11 +90,13 @@
 #define P6K_CMD_LSNEG    "LSNEG"
 #define P6K_CMD_LSPOS    "LSPOS"
 #define P6K_CMD_MA       "MA"
+#define P6K_CMD_OUT      "OUT"
 #define P6K_CMD_PESET    "PESET"
 #define P6K_CMD_PSET     "PSET"
 #define P6K_CMD_S        "S"
 #define P6K_CMD_TAS      "TAS"
 #define P6K_CMD_TLIM     "TLIM"
+#define P6K_CMD_TOUT     "TOUT"
 #define P6K_CMD_TPC      "TPC"
 #define P6K_CMD_TPE      "TPE"
 #define P6K_CMD_TSS      "TSS"
@@ -158,6 +165,11 @@ class p6kController : public asynMotorController {
   int P6K_C_TSS_MemError_;
   int P6K_C_TLIM_Enable_;
   int P6K_C_TLIM_Bits_;
+  int P6K_C_TOUT_Enable_;
+  int P6K_C_TOUT_Bits_;
+  int P6K_C_OUT_Bit_;
+  int P6K_C_OUT_Val_;
+  int P6K_C_OUT_All_;
   int P6K_C_LastParam_;
   #define LAST_P6K_PARAM P6K_C_LastParam_
 
@@ -177,6 +189,8 @@ class p6kController : public asynMotorController {
   asynStatus errorResponse(char *input, char *output);
   asynStatus lowLevelPortConnect(const char *port, int addr, asynUser **ppasynUser, const char *inputEos, const char *outputEos);
   asynStatus startPoller(void);
+  asynStatus setDigitalOutput(epicsInt32 bit, epicsInt32 enable);
+  asynStatus setDigitalOutputs(epicsInt32 enable);
 
   //static class data members
 
@@ -194,6 +208,7 @@ class p6kController : public asynMotorController {
 
   static const char P6K_ON_;
   static const char P6K_OFF_;
+  static const char P6K_NOCHANGE_;
 
   static const epicsUInt32 P6K_TSS_SYSTEMREADY_;
   static const epicsUInt32 P6K_TSS_PROGRUNNING_;
@@ -205,6 +220,9 @@ class p6kController : public asynMotorController {
   static const epicsUInt32 P6K_TLIM_BIT2_;
   static const epicsUInt32 P6K_TLIM_BIT3_;
   static const epicsUInt32 P6K_TLIM_SIZE_;
+
+  static const epicsUInt32 P6K_TOUT_BITS1_;
+  static const epicsUInt32 P6K_TOUT_BITS2_;
 
   friend class p6kAxis;
 
