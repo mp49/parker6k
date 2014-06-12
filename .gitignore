@@ -22,5 +22,5 @@ envPaths
 # Compiled python files
 *.pyc
 
-
+doxygen/
 
