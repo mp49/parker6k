@@ -702,9 +702,7 @@ asynStatus p6kController::setDigitalOutputs(epicsInt32 enable)
 asynStatus p6kController::getDigital(const char *command, size_t size, uint32_t *bits)
 {
   char response[P6K_MAXBUF_] = {0};  
-  char stringVal[P6K_MAXBUF] = {0};
   bool stat = true;
-  int32_t nvals = 0;
   uint32_t offset = 0;
 
   *bits = 0;
@@ -719,15 +717,14 @@ asynStatus p6kController::getDigital(const char *command, size_t size, uint32_t 
 	      functionName, command);
     return asynError;
   } else {
-    nvals = sscanf(response, "%s", stringVal);
     for (uint32_t bit=size; bit<P6K_MAXBUF_; ++bit) {
       if (bit >= P6K_UINT32_SIZE_) {
 	break;
       }
-      if (stringVal[bit] == P6K_UNDERSCORE_) {
+      if (response[bit] == P6K_UNDERSCORE_) {
 	++offset;
       } else {
-	*bits |= ((stringVal[bit] == P6K_ON_) << (bit-offset-size));
+	*bits |= ((response[bit] == P6K_ON_) << (bit-offset-size));
       }
     }
   }
@@ -859,7 +856,6 @@ asynStatus p6kController::poll()
   char response[P6K_MAXBUF] = {0};
   bool stat = true;
   int32_t nvals = 0;
-  uint32_t offset = 0;
   uint32_t bits = 0;
   char stringVal[P6K_MAXBUF] = {0};
   static const char *functionName = "p6kController::poll";
