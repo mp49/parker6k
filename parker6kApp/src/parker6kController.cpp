@@ -47,9 +47,10 @@ const epicsUInt32 p6kController::P6K_MAX_DIGITS_ = 2;
 const char * p6kController::P6K_ASYN_IEOS_ = ">";
 const char * p6kController::P6K_ASYN_OEOS_ = "\n";
 
-const char p6kController::P6K_ON_       = '1';
-const char p6kController::P6K_OFF_      = '0';
-const char p6kController::P6K_NOCHANGE_ = 'X';
+const char p6kController::P6K_ON_         = '1';
+const char p6kController::P6K_OFF_        = '0';
+const char p6kController::P6K_NOCHANGE_   = 'X';
+const char p6kController::P6K_UNDERSCORE_ = '_';
 
 //TSS Status Bits (position in char array, not TSS bit position) 
 const epicsUInt32 p6kController::P6K_TSS_SYSTEMREADY_ = 0;
@@ -64,9 +65,7 @@ const epicsUInt32 p6kController::P6K_TLIM_BIT2_ = 1;
 const epicsUInt32 p6kController::P6K_TLIM_BIT3_ = 2;
 const epicsUInt32 p6kController::P6K_TLIM_SIZE_ = 4;
 
-//OUT Bits (position of the two 4 axis blocks in the TOUT command)
-const epicsUInt32 p6kController::P6K_TOUT_BITS1_ = 0;
-const epicsUInt32 p6kController::P6K_TOUT_BITS2_ = 5;
+const epicsUInt32 p6kController::P6K_UINT32_SIZE_ = 32;
 
 //C function prototypes, for the functions that can be called on IOC shell.
 extern "C" {
@@ -131,8 +130,9 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_C_TSS_MemErrorString,     asynParamInt32, &P6K_C_TSS_MemError_);
   createParam(P6K_C_TLIM_EnableString,      asynParamInt32, &P6K_C_TLIM_Enable_);
   createParam(P6K_C_TLIM_BitsString,        asynParamInt32, &P6K_C_TLIM_Bits_);
-  createParam(P6K_C_TOUT_EnableString,      asynParamInt32, &P6K_C_TOUT_Enable_);
+  createParam(P6K_C_INOUT_EnableString,     asynParamInt32, &P6K_C_INOUT_Enable_);
   createParam(P6K_C_TOUT_BitsString,        asynParamInt32, &P6K_C_TOUT_Bits_);
+  createParam(P6K_C_TIN_BitsString,        asynParamInt32, &P6K_C_TIN_Bits_);
   createParam(P6K_C_OUT_BitString,          asynParamInt32, &P6K_C_OUT_Bit_);
   createParam(P6K_C_OUT_ValString,          asynParamInt32, &P6K_C_OUT_Val_);
   createParam(P6K_C_OUT_AllString,          asynParamInt32, &P6K_C_OUT_All_);
@@ -213,8 +213,9 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
     paramStatus = ((setIntegerParam(P6K_C_TSS_MemError_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TLIM_Enable_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TLIM_Bits_, 0) == asynSuccess) && paramStatus);
-    paramStatus = ((setIntegerParam(P6K_C_TOUT_Enable_, 0) == asynSuccess) && paramStatus);
+    paramStatus = ((setIntegerParam(P6K_C_INOUT_Enable_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TOUT_Bits_, 0) == asynSuccess) && paramStatus);
+    paramStatus = ((setIntegerParam(P6K_C_TIN_Bits_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_OUT_Bit_, 1) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_OUT_Val_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_OUT_All_, 0) == asynSuccess) && paramStatus);
@@ -687,6 +688,53 @@ asynStatus p6kController::setDigitalOutputs(epicsInt32 enable)
   return asynSuccess;
 }
 
+/**
+ * This is a generic function that sends a command to the controller 
+ * and expects back a string of format 0000_0000_0000_ etc. Or any number
+ * of digits with underscore separating each block (eg. 000_000_ etc.) 
+ * The underscores are ignored and the bits are placed into a uint32_t. 
+ * This can be used to read the state of the digital inputs, outputs and limits.
+ * @param command Pointer to char array command to send
+ * @param size Number of characters in char array command (not including EOL)
+ * @param bits Pointer to uint32_t that will be modified to contain the bits.
+ * @return asynStatus
+ */
+asynStatus p6kController::getDigital(const char *command, size_t size, uint32_t *bits)
+{
+  char response[P6K_MAXBUF_] = {0};  
+  char stringVal[P6K_MAXBUF] = {0};
+  bool stat = true;
+  int32_t nvals = 0;
+  uint32_t offset = 0;
+
+  *bits = 0;
+
+  const char *functionName = "parker6kController::getDigital";
+  asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, "%s.\n", functionName);
+
+  stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
+  if (!stat) {
+    asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+	      "%s: ERROR: failed to send %s\n", 
+	      functionName, command);
+    return asynError;
+  } else {
+    nvals = sscanf(response, "%s", stringVal);
+    for (uint32_t bit=size; bit<P6K_MAXBUF_; ++bit) {
+      if (bit >= P6K_UINT32_SIZE_) {
+	break;
+      }
+      if (stringVal[bit] == P6K_UNDERSCORE_) {
+	++offset;
+      } else {
+	*bits |= ((stringVal[bit] == P6K_ON_) << (bit-offset-size));
+      }
+    }
+  }
+
+  return asynSuccess;
+}
+
 
 /**
  * Deal with controller specific asynOctet params.
@@ -811,8 +859,8 @@ asynStatus p6kController::poll()
   char response[P6K_MAXBUF] = {0};
   bool stat = true;
   int32_t nvals = 0;
-  int32_t offset = 0;
-  int32_t bits = 0;
+  uint32_t offset = 0;
+  uint32_t bits = 0;
   char stringVal[P6K_MAXBUF] = {0};
   static const char *functionName = "p6kController::poll";
 
@@ -839,51 +887,29 @@ asynStatus p6kController::poll()
   //Set any controller specific parameters. 
   //Some of these may be used by the axis poll to set axis bits.
 
-  //Transfer limit and home status and pack into uint32_t.
+  //Transfer limit and home status and pack into uint32_t param.
   int32_t tlim = 0;
-  bits = 0;
-  offset = 0;
   getIntegerParam(P6K_C_TLIM_Enable_, &tlim);
   setIntegerParam(P6K_C_TLIM_Bits_, 0);
   if (tlim == 1) {
-    epicsSnprintf(command, P6K_MAXBUF, "%s", P6K_CMD_TLIM);
-    stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
-    if (stat) {
-      nvals = sscanf(response, P6K_CMD_TLIM"%s", stringVal);
-      for (uint32_t axis=0; axis<P6K_MAXAXES_; ++axis) {
-	for (uint32_t bit=0; bit<P6K_TLIM_SIZE_; ++bit) {
-	  offset = bit + (P6K_TLIM_SIZE_ * axis);
-	  if (offset < P6K_MAXBUF_) { 
-	    bits |= ((stringVal[offset] == P6K_ON_) << offset);
-	  }
-	}
-      }
-      stat = (setIntegerParam(P6K_C_TLIM_Bits_, bits) == asynSuccess) && stat;
-    }
-    memset(command, 0, sizeof(command));
-    memset(stringVal, 0, sizeof(stringVal));
+    bits = 0;
+    stat = (getDigital(P6K_CMD_TLIM, (sizeof(P6K_CMD_TLIM)-1), &bits) == asynSuccess) && stat;
+    stat = (setIntegerParam(P6K_C_TLIM_Bits_, bits) == asynSuccess) && stat;
   }
 
-  int32_t tout = 0;
-  bits = 0;
-  offset = 0;
-  getIntegerParam(P6K_C_TOUT_Enable_, &tout);
+  //Transfer input and output signals and pack into uint32_t param.
+  int32_t inout = 0;
+  getIntegerParam(P6K_C_INOUT_Enable_, &inout);
   setIntegerParam(P6K_C_TOUT_Bits_, 0);
-  if (tout == 1) {
-    epicsSnprintf(command, P6K_MAXBUF, "%s", P6K_CMD_TOUT);
-    stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
-    if (stat) {
-      nvals = sscanf(response, P6K_CMD_TOUT"%s", stringVal);
-      for (uint32_t axis=0; axis<P6K_MAXAXES_; ++axis) {
-	if (axis == P6K_TOUT_BITS2_-1) {
-	  offset = 1;
-	}
-	bits |= ((stringVal[axis + offset] == P6K_ON_) << axis);
-      }
-      stat = (setIntegerParam(P6K_C_TOUT_Bits_, bits) == asynSuccess) && stat;
-    }
-    memset(command, 0, sizeof(command));
-    memset(stringVal, 0, sizeof(stringVal));
+  setIntegerParam(P6K_C_TIN_Bits_, 0);
+  if (inout == 1) {
+    bits = 0;
+    stat = (getDigital(P6K_CMD_TOUT, (sizeof(P6K_CMD_TOUT)-1), &bits) == asynSuccess) && stat;
+    stat = (setIntegerParam(P6K_C_TOUT_Bits_, bits) == asynSuccess) && stat;
+
+    bits = 0;
+    stat = (getDigital(P6K_CMD_TIN, (sizeof(P6K_CMD_TIN)-1), &bits) == asynSuccess) && stat;
+    stat = (setIntegerParam(P6K_C_TIN_Bits_, bits) == asynSuccess) && stat;
   }
   
   //Transfer system status

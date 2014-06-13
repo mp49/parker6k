@@ -106,15 +106,14 @@ record(longin, "$(S):TLIM")
 }
 
 # ///
-# /// Enable TOUT polling in the controller object
-# /// This reads the state of the digital outputs
-# /// and populates the TOUT record.
+# /// Enable polling of the controller inputs and outputs (TIN and TOUT).
+# /// This will populate the TOUT and TIN records.
 # ///
-record(bo, "$(S):EnableTOUT")
+record(bo, "$(S):EnableINOUT")
 {
    field(PINI, "YES")
    field(DTYP, "asynInt32")
-   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_TOUT_ENABLE")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_INOUT_ENABLE")
    field(ZNAM, "No")
    field(ONAM, "Yes")
    field(VAL,  "0")
@@ -122,12 +121,22 @@ record(bo, "$(S):EnableTOUT")
 }
 
 # ///
-# /// TOUT bits. This will be zero if EnableTOUT is not on.
+# /// TOUT bits. This will be zero if EnableINOUT is not on.
 # ///
 record(longin, "$(S):TOUT")
 {
    field(DTYP, "asynInt32")
    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_TOUT_BITS")
+   field(SCAN, "I/O Intr")
+}
+
+# ///
+# /// TIN bits. This will be zero if EnableINOUT is not on.
+# ///
+record(longin, "$(S):TIN")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_TIN_BITS")
    field(SCAN, "I/O Intr")
 }
 
@@ -142,7 +151,6 @@ record(bo, "$(S):EnableOUT")
    field(ZNAM, "All Off")
    field(ONAM, "All On")
    field(VAL,  "0")
-   info(autosaveFields, "VAL")
 }
 
 # ///
