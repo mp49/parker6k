@@ -151,6 +151,7 @@ record(bo, "$(S):EnableOUT")
    field(ZNAM, "All Off")
    field(ONAM, "All On")
    field(VAL,  "0")
+   info(autosaveFields, "VAL")
 }
 
 # ///
@@ -176,6 +177,7 @@ record(mbbo, "$(S):OUTBit")
    field(SXVL, "7")
    field(SVST, "OUT 8")
    field(SVVL, "8")
+   info(autosaveFields, "VAL")
 }
 
 # ///
@@ -190,6 +192,7 @@ record(bo, "$(S):OUTVal")
    field(ZNAM, "Off")
    field(ONAM, "On")
    field(VAL,  "0")
+   info(autosaveFields, "VAL")
 }
 
 # ///
