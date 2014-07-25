@@ -24,7 +24,7 @@ has a number of advantages over the model 1 driver:
 
 \subsubsection notes Notes
 
-The driver has been tested on stepper drives (with and without encoders) using a 4-axis compumotor controller. 
+The driver has been tested on stepper drives (with and without encoders) using 4 and 8-axis compumotor controllers. 
 The driver has not been tested with servo drives.
 
 The move function automatically sets up the S-curve parameters at
