@@ -1,0 +1,263 @@
+#######################################################
+#
+# Axis template for P6K model 3 motor driver.
+# This provides access to some axis specific driver
+# parameters and some high level logic for controlling
+# drive power.
+# 
+# Macros:
+# M - base PV name (should match the motor record)
+# C - PV name of controller records
+# PORT - asyn motor driver port
+# ADDR - asyn address (ie. axis number)
+# TIMEOUT - asyn timeout (eg 1)
+#
+# Matt Pearson
+# May 2014
+#
+#######################################################
+
+# ///
+# /// Disable the motor records if we are in comms error.
+# /// This will prevent changes while the driver is unable to
+# /// talk to the controller. 
+# ///
+record(calcout, "$(M):CommsDisable")
+{
+   field(INPA, "$(C):CommsError CP")
+   field(CALC, "A==1")
+   field(DOPT, "Use CALC")
+   field(OOPT, "On Change")
+   field(OUT, "$(M):SDIS.B PP")
+}
+
+# ///
+# /// Time to delay the end of move flag. This has a resolution
+# /// depending on the driver polling rate.
+# ///
+record(ao, "$(M):DelayTime")
+{
+   field(PINI, "YES")
+   field(EGU, "s")
+   field(DTYP, "asynFloat64")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_DELAYTIME")
+   field(VAL,  "0")
+   field(PREC, "1")
+   info(autosaveFields, "VAL")
+}
+
+# ///
+# /// Axis error message
+# ///
+record(waveform, "$(M):ErrorMessage")
+{
+    field(DTYP, "asynOctetRead")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_ERROR")
+    field(FTVL, "CHAR")
+    field(NELM, "256")
+    field(SCAN, "I/O Intr")
+}
+
+# ///
+# /// Axis error message (move specific, from controller)
+# ///
+record(waveform, "$(M):MoveErrorMessage")
+{
+    field(DTYP, "asynOctetRead")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_MOVEERROR")
+    field(FTVL, "CHAR")
+    field(NELM, "256")
+    field(SCAN, "I/O Intr")
+}
+
+# ///
+# /// Automatic drive enable (enable drive at the start of a move)
+# ///
+record(bo, "$(M):AutoEnable")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_AUTO_DRIVE_ENABLE")
+   field(ZNAM, "No")
+   field(ONAM, "Yes")
+   field(VAL,  "0")
+   info(autosaveFields, "VAL")
+}
+
+# ///
+# /// Time delay between automatic drive enable and the actual move.
+# /// This delays the move function, so locks the low level
+# /// driver for the time period.
+# /// Units = milliseconds.
+# ///
+record(longout, "$(M):AutoEnableDelay")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_AUTO_DRIVE_ENABLE_DELAY")
+   field(VAL,  "0")
+   field(EGU, "ms")
+   info(autosaveFields, "VAL")
+}
+record(longin, "$(M):AutoEnableDelay_RBV")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_AUTO_DRIVE_ENABLE_DELAY")
+   field(EGU, "ms")
+   field(SCAN, "I/O Intr")
+}
+
+############################################################################
+# Records to implement a timer to disable the drive power 
+# after the move ends.
+
+# ///
+# /// Automatic drive disable 
+# /// Disable drive after a configurable time. This record
+# /// enables/disables the record logic that deals with this.
+# ///
+record(bo, "$(M):AutoDisable")
+{
+   field(PINI, "YES")
+   field(ZNAM, "No")
+   field(ONAM, "Yes")
+   field(VAL,  "0")
+   info(autosaveFields, "VAL")
+   field(FLNK, "$(M):AutoDisableSDIS")
+}
+
+record(calc, "$(M):AutoDisableSDIS")
+{
+   field(INPA, "$(M):AutoDisable.VAL")
+   field(CALC, "!A")
+   field(FLNK, "$(M):AutoDisableAction")
+}
+
+# ///
+# /// Timer for the automatic drive disable.
+# /// This is disabled when a move is in progress,
+# /// and reset+enabled at the end of a move.
+# ///
+record(calcout, "$(M):AutoDisableTimer")
+{
+   field(DESC, "Disable Timer")
+   field(CALC, "A+1")
+   field(OUT, "$(M):AutoDisableTimer.A NPP")
+   field(SCAN, "1 second")
+   field(EGU, "s")
+   field(FLNK, "$(M):AutoDisableAction")
+}
+record(calcout, "$(M):AutoDisableAction")
+{
+   field(DESC, "Disable Drive")
+   field(INPA, "$(M):AutoDisableTimer.VAL")
+   field(INPB, "$(M):AutoDisableDelay")
+   field(CALC, "A==B")
+   field(OOPT, "When Non-zero")
+   field(DOPT, "Use OCAL")
+   field(OCAL, "0")
+   field(OUT, "$(M).CNEN PP")
+   field(SDIS, "$(M):AutoDisableSDIS")     
+}
+
+# ///
+# /// Delay in seconds to execute the drive disable
+# ///
+record(longout, "$(M):AutoDisableDelay")
+{
+   field(DESC, "Disable Drive Delay")
+   field(VAL, "0")
+   field(EGU, "s")
+   info(autosaveFields, "VAL")
+}
+
+# ///
+# /// Disable AutoDriveDisableTimer when a move is active.
+# /// Also Reset AutoDriveDisableTimer on any DMOV transition
+# ///
+record(calcout, "$(M):AutoDisableCtrl")
+{
+   field(INPA, "$(M).DMOV CP")
+   field(CALC, "!A")
+   field(OUT, "$(M):AutoDisableTimer.DISA PP")
+   field(FLNK, "$(M):ResetDisableTimer")    
+}
+
+# ///
+# /// Reset AutoDriveDisableTimer
+# ///
+record(dfanout, "$(M):ResetDisableTimer") {
+  field(VAL, "-1")
+  field(OUTA, "$(M):AutoDisableTimer.A PP")
+  field(OUTB, "$(M):AutoDisableTimer.VAL PP")
+}
+
+############################################################################
+# Read some TAS bits
+
+record(bi, "$(M):TAS:DriveFault")
+{
+  field(PINI, "YES")
+  field(DTYP, "asynInt32")
+  field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_TAS_DRIVEFAULT")
+  field(VAL, "0")
+  field(ZNAM, "No Fault")
+  field(ONAM, "Fault")
+  field(ZSV, "NO_ALARM")
+  field(OSV, "MAJOR")
+  field(SCAN, "I/O Intr")
+  info(archive, "Monitor, 00:00:10, VAL")
+}
+
+record(bi, "$(M):TAS:TargetTimeout")
+{
+  field(PINI, "YES")
+  field(DTYP, "asynInt32")
+  field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_TAS_TIMEOUT")
+  field(VAL, "0")
+  field(ZNAM, "None")
+  field(ONAM, "Timeout")
+  field(ZSV, "NO_ALARM")
+  field(OSV, "MAJOR")
+  field(SCAN, "I/O Intr")
+  info(archive, "Monitor, 00:00:10, VAL")
+}
+
+record(bi, "$(M):TAS:PositionError")
+{
+  field(PINI, "YES")
+  field(DTYP, "asynInt32")
+  field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_TAS_POSERR")
+  field(VAL, "0")
+  field(ZNAM, "None")
+  field(ONAM, "Error")
+  field(ZSV, "NO_ALARM")
+  field(OSV, "MAJOR")
+  field(SCAN, "I/O Intr")
+  info(archive, "Monitor, 00:00:10, VAL")
+}
+
+############################################################################
+
+
+
+# These are useful if you need to set the software limits 
+# under the feet of the motor record.
+#record(ao, "$(M):HighLimit")
+#{
+#   field(PINI, "YES")
+#   field(DTYP, "asynFloat64")
+#   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))MOTOR_HIGH_LIMIT")
+#   field(VAL,  "0")
+#   info(autosaveFields, "VAL")
+#}
+
+#record(ao, "$(M):LowLimit")
+#{
+#   field(PINI, "YES")
+#   field(DTYP, "asynFloat64")
+#   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))MOTOR_LOW_LIMIT")
+#   field(VAL,  "0")
+#   info(autosaveFields, "VAL")
+#}
+

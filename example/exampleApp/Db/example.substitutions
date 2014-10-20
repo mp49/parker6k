@@ -1,0 +1,22 @@
+
+
+file basic_asyn_motor_sns.db
+{
+pattern {P, M, DESC, DTYP, DIR, VELO, VBAS, ACCL, BDST, BVEL, BACC, PORT, ADDR, MRES, PREC, EGU, DHLM, DLLM, HLSV, INIT, SREV, RRES, TWV, ERES, JAR, UEIP, VMAX, OFF, RDBD, FOFF, ADEL, NTM}
+        {BL99:, Mot:P6K1, "P6K1", asynMotor, 0, 0.5, 0, 1.0, 0, 0, 0, P6K, 1, 0.00004, 3, mm, 50, -50, MINOR, "", 200, 0, 1.0, 0.0002, 0, 0, 5, 0, 0.0004, 0, 0.0, NO}
+        {BL99:, Mot:P6K2, "P6K2", asynMotor, 0, 0.5, 0, 1.0, 0, 0, 0, P6K, 2, 0.00004, 3, mm, 50, -50, MINOR, "", 200, 0, 1.0, 0, 0, 0, 5, 0, 0.00008, 0, 0.0, NO}
+}
+
+file p6k_controller.template
+{
+pattern {S, PORT, ADDR, TIMEOUT, COMMSPORT, COMMSADDR}
+	{BL99:Mot:Controller1, P6K, 0, 1, 6K, 0}
+}
+
+file p6k_axis.template
+{
+pattern {M, C, PORT, ADDR, TIMEOUT}
+        {BL99:Mot:P6K1, BL99:Mot:Controller1, P6K, 1, 1} 
+        {BL99:Mot:P6K2, BL99:Mot:Controller1, P6K, 2, 1} 
+}
+

@@ -1,0 +1,259 @@
+#######################################################
+#
+# Controller template for P6K model 3 motor driver.
+# This provides access to some controller specific driver
+# parameters.
+# 
+# Macros:
+# S - base PV name
+# PORT - asyn motor driver port
+# ADDR - asyn address (ie. axis number)
+# TIMEOUT - asyn timeout (eg 1)
+# COMMSPORT - low level Asyn port
+# COMMSADDR - low level Asyn addr
+#
+# Matt Pearson
+# May 2014
+#
+#######################################################
+
+# ///
+# /// Axis error message (from controller)
+# ///
+record(waveform, "$(S):ErrorMessage")
+{
+    field(DTYP, "asynOctetRead")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_ERROR")
+    field(FTVL, "CHAR")
+    field(NELM, "256")
+    field(SCAN, "I/O Intr")
+}
+
+# ///
+# /// Flag to indicate controller comms error
+# ///
+record(bi, "$(S):CommsError")
+{
+    field(DESC, "Controller Comms")
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_COMMSERROR")
+    field(ZNAM, "OK")
+    field(ONAM, "Comms Failed")
+    field(ZSV,  "NO_ALARM") 
+    field(OSV,  "MAJOR")
+    field(SCAN, "I/O Intr")
+    info(archive, "Monitor, 00:00:10, VAL")
+}
+
+# ///
+# /// Flag to indicate controller config error
+# /// By default this is 'OK'. If using the upload
+# /// driver function it will be set to 'Error' if 
+# /// there is a problem uploading the commands.
+# ///
+record(bi, "$(S):Config")
+{
+    field(DESC, "Controller Config")
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_CONFIG")
+    field(ZNAM, "Error")
+    field(ONAM, "OK")
+    field(ZSV,  "MAJOR")
+    field(OSV,  "NO_ALARM") 
+    field(SCAN, "I/O Intr")
+    info(archive, "Monitor, 00:00:10, VAL")
+}
+
+# ///
+# /// Log commands sent to the controller (print to standard out)
+# ///
+record(bo, "$(S):Log")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_LOG")
+   field(ZNAM, "No")
+   field(ONAM, "Yes")
+   field(VAL,  "0")
+   info(autosaveFields, "VAL")
+}
+
+# ///
+# /// Enable TLIM polling in the controller object
+# /// This reads the state of the hardware limit and home signals
+# /// and populates the TLIM record. It will also set the 
+# /// axis limit and home signals even if we're not moving.
+# ///
+record(bo, "$(S):EnableTLIM")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_TLIM_ENABLE")
+   field(ZNAM, "No")
+   field(ONAM, "Yes")
+   field(VAL,  "0")
+   info(autosaveFields, "VAL")
+}
+
+# ///
+# /// TLIM bits. This will be zero if EnableTLIM is not on.
+# ///
+record(longin, "$(S):TLIM")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_TLIM_BITS")
+   field(SCAN, "I/O Intr")
+}
+
+# ///
+# /// Enable polling of the controller inputs and outputs (TIN and TOUT).
+# /// This will populate the TOUT and TIN records.
+# ///
+record(bo, "$(S):EnableINOUT")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_INOUT_ENABLE")
+   field(ZNAM, "No")
+   field(ONAM, "Yes")
+   field(VAL,  "0")
+   info(autosaveFields, "VAL")
+}
+
+# ///
+# /// TOUT bits. This will be zero if EnableINOUT is not on.
+# ///
+record(longin, "$(S):TOUT")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_TOUT_BITS")
+   field(SCAN, "I/O Intr")
+}
+
+# ///
+# /// TIN bits. This will be zero if EnableINOUT is not on.
+# ///
+record(longin, "$(S):TIN")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_TIN_BITS")
+   field(SCAN, "I/O Intr")
+}
+
+# ///
+# /// Enable or disable all OUT bits.
+# ///
+record(bo, "$(S):EnableOUT")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_OUT_ALL")
+   field(ZNAM, "All Off")
+   field(ONAM, "All On")
+   field(VAL,  "0")
+   info(autosaveFields, "VAL")
+}
+
+# ///
+# /// Set an OUT bit to control
+# ///
+record(mbbo, "$(S):OUTBit")
+{
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_OUT_BIT")
+   field(ZRST, "OUT 1")
+   field(ZRVL, "1")
+   field(ONST, "OUT 2")
+   field(ONVL, "2")
+   field(TWST, "OUT 3")
+   field(TWVL, "3")
+   field(THST, "OUT 4")
+   field(THVL, "4")
+   field(FRST, "OUT 5")
+   field(FRVL, "5")
+   field(FVST, "OUT 6")
+   field(FVVL, "6")
+   field(SXST, "OUT 7")
+   field(SXVL, "7")
+   field(SVST, "OUT 8")
+   field(SVVL, "8")
+   info(autosaveFields, "VAL")
+}
+
+# ///
+# /// Set an OUT bit to on/off. 
+# /// This controls the bit chosen by $(S):OUTBit.
+# ///
+record(bo, "$(S):OUTVal")
+{
+   field(PINI, "NO")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_OUT_VAL")
+   field(ZNAM, "Off")
+   field(ONAM, "On")
+   field(VAL,  "0")
+   info(autosaveFields, "VAL")
+}
+
+# ///
+# /// User command
+# ///
+record(waveform, "$(S):Command")
+{
+    field(DTYP, "asynOctetWrite")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_COMMAND")
+    field(FTVL, "CHAR")
+    field(NELM, "256")
+}
+
+# ///
+# /// User command response
+# ///
+record(waveform, "$(S):Response")
+{
+    field(DTYP, "asynOctetRead")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_RESPONSE")
+    field(FTVL, "CHAR")
+    field(NELM, "256")
+    field(SCAN, "I/O Intr")
+}
+
+# ///
+# /// Deferred moves flag for this controller
+# ///
+record(bo, "$(S):Defer") 
+{
+  field(DESC, "Defer Moves")
+  field(DTYP, "asynInt32")
+  field(OUT, "@asyn($(PORT),$(ADDR),$(TIMEOUT))MOTOR_DEFER_MOVES")
+  field(SCAN, "Passive")
+  field(ZNAM, "GO")
+  field(ONAM, "DEFER")
+  field(VAL, "0")
+}
+
+##################################################
+# General purpose Asyn record
+##################################################
+
+# /// 
+# /// Asyn record
+# ///
+record(asyn,"$(S):Asyn")
+{
+    field(DTYP,"asynRecordDevice")
+    field(PORT,"$(COMMSPORT)")
+    field(ADDR,"$(COMMSADDR)")
+    field(OMAX,"1024")
+    field(IMAX,"1024")
+    field(AUCT,"0")
+}
+
+record(dfanout, "$(S):AsynAUCT")
+{
+    field(DOL, "0")
+    field(OUTA, "$(S):Asyn.AUCT PP")
+    field(PINI, "YES")
+}
+
+
