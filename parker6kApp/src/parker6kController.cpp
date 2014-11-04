@@ -15,6 +15,7 @@
 #include <string.h>
 #include <math.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include <iostream>
 using std::cout;
