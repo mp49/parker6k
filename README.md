@@ -185,7 +185,8 @@ The module was developed using:
 
 * EPICS BASE 3.14.12.2
 * ASYN 4-22
-* MOTOR 6-8
+* MOTOR >6-8 (use SVN version until a version >6-8 has been released:
+`svn co https://subversion.xor.aps.anl.gov/synApps/motor/trunk`)
 
 In addition, the example IOC was built to include support
 for autosave and devIocStats.
