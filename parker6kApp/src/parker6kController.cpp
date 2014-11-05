@@ -914,6 +914,14 @@ asynStatus p6kController::poll()
   stat = (lowLevelWriteRead(command, response) == asynSuccess) && stat;
   if (stat) {
     nvals = sscanf(response, P6K_CMD_TSS"%s", stringVal);
+    if (nvals <= 0) {
+      stat = false;
+      if (printErrors_) {
+	asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
+		  "%s: ERROR: Problem reading TSS on controller %s\n", 
+		  functionName, this->portName);
+      }
+    }
   }
   memset(command, 0, sizeof(command));
    
@@ -1141,7 +1149,9 @@ asynStatus p6kCreateController(const char *portName, const char *lowLevelPortNam
     p6kController *pp6kController
       = new p6kController(portName, lowLevelPortName, lowLevelPortAddress, 
 			  numAxes, movingPollPeriod/1000., idlePollPeriod/1000.);
-    pp6kController = NULL;
+    if (pp6kController) {
+      pp6kController = NULL;
+    }
 
     return asynSuccess;
 }
@@ -1175,7 +1185,9 @@ asynStatus p6kCreateAxis(const char *p6kName,   //specify which controller by po
   
   pC->lock();
   pAxis = new p6kAxis(pC, axis);
-  pAxis = NULL;
+  if (pAxis) {
+    pAxis = NULL;
+  }
   pC->unlock();
   return asynSuccess;
 }
@@ -1206,7 +1218,9 @@ asynStatus p6kCreateAxes(const char *p6kName,
   pC->lock();
   for (int axis=1; axis<=numAxes; axis++) {
     pAxis = new p6kAxis(pC, axis);
-    pAxis = NULL;
+    if (pAxis) {
+      pAxis = NULL;
+    }
   }
   pC->unlock();
   return asynSuccess;

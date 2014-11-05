@@ -7,6 +7,8 @@ include $(TOP)/configure/CONFIG
 #=============================
 # Build the IOC support library
 
+USR_CXXFLAGS += -Wunused-but-set-variable
+
 LIBRARY_IOC += parker6kSupport
 
 DBD += parker6kSupport.dbd
