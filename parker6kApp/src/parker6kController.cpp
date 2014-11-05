@@ -347,7 +347,7 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
     printf("%s > %s\n", this->portName, command);
   }
 
-  memset(response, 0, sizeof(response));
+  memset(response, 0, strlen(response));
   
   stat = (pasynOctetSyncIO->writeRead(lowLevelPortUser_ ,
 				       command, strlen(command),
