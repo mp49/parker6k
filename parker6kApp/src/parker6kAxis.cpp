@@ -104,6 +104,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   printErrors_ = true;
   commandError_ = false;
   axisError_ = false;
+  driveType_ = P6K_STEPPER_;
 
   p6k_cmddir_ = 0;
   p6k_drfen_ = 0;
