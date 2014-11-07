@@ -176,6 +176,8 @@ delay time between the end of the move and drive disable). This is implemented
 in database logic due to the possibility of the motor record doing
 mutliple moves (so we use DMOV transitions to implement this).
 
+The example IOC substitutions file references basic_asyn_motor_sns.db. This is a version of the standard motor support module basic_asyn_motor.db, with some additional useful records added. There is an example of this file in the exampleAdd/Db directory, along with error_calc.db and home_visibility.db templates files (which are referenced by basic_asyn_motor_sns.db). It will be up to the site developer wether to use these additional records. 
+
 ### Building and Testing
 
 You may need to modify the files in the top level configure directory
