@@ -1,0 +1,14 @@
+
+
+#Record to calculate a combined error flag. Used in GUI.
+record(calc, "$(P)$(M):ERROR")
+{
+	field(DESC, "Combined Error Flag")
+	field(PINI, "YES")
+	field(VAL, "0")
+	field(INPA, "$(P)$(M).STAT CP MS")
+	field(INPB, "$(P)$(M).LVIO CP MS")
+	field(INPC, "$(P)$(M).MISS CP MS")
+	field(CALC, "(A||B||C)?1:0")
+}
+
