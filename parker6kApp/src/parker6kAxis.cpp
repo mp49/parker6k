@@ -997,6 +997,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       int32_t tlim_size = 0;
       pC_->getIntegerParam(pC_->P6K_C_TLIM_Bits_, &tlim_bits);
       stat = (setIntegerParam(pC_->motorStatusAtHome_, 0) == asynSuccess) && stat;
+      stat = (setIntegerParam(pC_->motorStatusHome_, 0) == asynSuccess) && stat;
       if (tlim_bits > 0) {
 	tlim_size = (axisNo_ - 1)*pC_->P6K_TLIM_SIZE_;
 	if ((tlim_bits & (0x1 << (tlim_size + pC_->P6K_TLIM_BIT1_))) == 0) {
@@ -1007,6 +1008,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
 	}
 	if (tlim_bits & (0x1 << (tlim_size + pC_->P6K_TLIM_BIT3_))) {
 	  stat = (setIntegerParam(pC_->motorStatusAtHome_, 1) == asynSuccess) && stat;
+	  stat = (setIntegerParam(pC_->motorStatusHome_, 1) == asynSuccess) && stat;
 	}
       }
       
