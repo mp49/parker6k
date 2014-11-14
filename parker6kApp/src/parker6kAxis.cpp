@@ -262,11 +262,25 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
   if (axisNo_ != 0) {
-
-    stat = (readIntParam(P6K_CMD_AXSDEF, pC_->P6K_A_AXSDEF_, &intVal) == asynSuccess) && stat;
-    if (stat) {
-      driveType_ = intVal;
+    char command[P6K_MAXBUF] = {0};
+    char response[P6K_MAXBUF] = {0};
+    strncpy(command, P6K_CMD_TREV, P6K_MAXBUF);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    std::string revisionStr(response);
+    if(revisionStr.find(" GEM6K GT6K") != std::string::npos) {
+      driveType_ = P6K_STEPPER_;
+    } else if(revisionStr.find(" GEM6K GV6K") != std::string::npos) {
+      driveType_ = P6K_SERVO_;
+    } else if(revisionStr.find(" 6K") != std::string::npos) {
+      stat = (readIntParam(P6K_CMD_AXSDEF, pC_->P6K_A_AXSDEF_, &intVal) == asynSuccess) && stat;
+      if (stat) {
+        driveType_ = intVal;
+      }
+    } else {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+		"%s ERROR: Unsupported controller model.\n", functionName);
     }
+
     stat = (readIntParam(P6K_CMD_DRES, pC_->P6K_A_DRES_, &intVal) == asynSuccess) && stat;
     stat = (readIntParam(P6K_CMD_ERES, pC_->P6K_A_ERES_, &intVal) == asynSuccess) && stat;
     stat = (readIntParam(P6K_CMD_DRIVE, pC_->motorStatusPowerOn_, &intVal) == asynSuccess) && stat;
