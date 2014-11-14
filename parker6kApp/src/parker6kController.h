@@ -101,6 +101,7 @@
 #define P6K_CMD_TOUT     "TOUT"
 #define P6K_CMD_TPC      "TPC"
 #define P6K_CMD_TPE      "TPE"
+#define P6K_CMD_TREV     "TREV"
 #define P6K_CMD_TSS      "TSS"
 #define P6K_CMD_V        "V"
 
