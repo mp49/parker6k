@@ -128,12 +128,9 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   paramStatus = ((setIntegerParam(pC_->P6K_A_LH_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setStringParam(pC_->P6K_A_Error_, " ") == asynSuccess) && paramStatus);
   paramStatus = ((setStringParam(pC_->P6K_A_MoveError_, " ") == asynSuccess) && paramStatus);
-  paramStatus = ((setDoubleParam(pC_->P6K_A_DelayTime_, 0.0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_TAS_DriveFault_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_TAS_Timeout_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_TAS_PosErr_, 0) == asynSuccess) && paramStatus);
-  paramStatus = ((setIntegerParam(pC_->P6K_A_AutoDriveEnable_, 0) == asynSuccess) && paramStatus);
-  paramStatus = ((setIntegerParam(pC_->P6K_A_AutoDriveEnableDelay_, 0) == asynSuccess) && paramStatus);
   if (!paramStatus) {
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
 	      "%s Unable To Set Driver Parameters In Constructor. Axis:%d\n", 

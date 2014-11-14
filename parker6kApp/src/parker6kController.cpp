@@ -206,19 +206,15 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
     paramStatus = ((setStringParam(P6K_C_Response_, " ") == asynSuccess) && paramStatus);
     paramStatus = ((setStringParam(P6K_C_Error_, " ") == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_Config_, 1) == asynSuccess) && paramStatus);
-    paramStatus = ((setIntegerParam(P6K_C_Log_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_SystemReady_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_ProgRunning_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_Immediate_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_CmdError_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_MemError_, 0) == asynSuccess) && paramStatus);
-    paramStatus = ((setIntegerParam(P6K_C_TLIM_Enable_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TLIM_Bits_, 0) == asynSuccess) && paramStatus);
-    paramStatus = ((setIntegerParam(P6K_C_INOUT_Enable_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TOUT_Bits_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TIN_Bits_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_OUT_Bit_, 1) == asynSuccess) && paramStatus);
-    paramStatus = ((setIntegerParam(P6K_C_OUT_Val_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_OUT_All_, 0) == asynSuccess) && paramStatus);
     callParamCallbacks();
 
