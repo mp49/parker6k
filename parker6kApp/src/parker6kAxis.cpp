@@ -25,6 +25,7 @@
 
 #include "parker6kController.h"
 #include <iostream>
+#include <limits>
 using std::cout;
 using std::endl;
 
@@ -710,24 +711,26 @@ asynStatus p6kAxis::setHighLimit(double highLimit)
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
-  epicsInt32 limit = static_cast<epicsInt32>(floor(highLimit + 0.5));
+  if(highLimit != std::numeric_limits<double>::infinity()) {
+    epicsInt32 limit = static_cast<epicsInt32>(floor(highLimit + 0.5));
 
-  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW,
-	    "%s: Setting high limit on controller %s, axis %d to %d\n",
-	    functionName, pC_->portName, axisNo_, limit);
-  
-  epicsSnprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
-  stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-  memset(command, 0, sizeof(command));
-  
-  epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSPOS, limit);
-  stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-  
-  if (!stat) {
-    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
-	      "%s: ERROR: Failed to set high limit on controller %s, axis %d\n",
-	      functionName, pC_->portName, axisNo_);
-    status = asynError;
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW,
+              "%s: Setting high limit on controller %s, axis %d to %d\n",
+              functionName, pC_->portName, axisNo_, limit);
+
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    memset(command, 0, sizeof(command));
+
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSPOS, limit);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+
+    if (!stat) {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+                "%s: ERROR: Failed to set high limit on controller %s, axis %d\n",
+                functionName, pC_->portName, axisNo_);
+      status = asynError;
+    }
   }
   
   return status;
@@ -746,24 +749,26 @@ asynStatus p6kAxis::setLowLimit(double lowLimit)
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
-  epicsInt32 limit = static_cast<epicsInt32>(floor(lowLimit + 0.5));
+  if(lowLimit != -std::numeric_limits<double>::infinity()) {
+    epicsInt32 limit = static_cast<epicsInt32>(floor(lowLimit + 0.5));
 
-  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW,
-	    "%s: Setting high limit on controller %s, axis %d to %d\n",
-	    functionName, pC_->portName, axisNo_, limit);
-  
-  epicsSnprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
-  stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-  memset(command, 0, sizeof(command));
-  
-  epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSNEG, limit);
-  stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-  
-  if (!stat) {
-    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
-	      "%s: ERROR: Failed to set low limit on controller %s, axis %d\n",
-	      functionName, pC_->portName, axisNo_);
-    status = asynError;
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW,
+              "%s: Setting high limit on controller %s, axis %d to %d\n",
+              functionName, pC_->portName, axisNo_, limit);
+
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    memset(command, 0, sizeof(command));
+
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSNEG, limit);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+
+    if (!stat) {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+                "%s: ERROR: Failed to set low limit on controller %s, axis %d\n",
+                functionName, pC_->portName, axisNo_);
+      status = asynError;
+    }
   }
   
   return status;
