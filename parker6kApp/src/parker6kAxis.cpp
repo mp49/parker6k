@@ -406,20 +406,28 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
   if (acceleration != 0) {
     if (max_velocity != 0) {
       epicsFloat64 accel = acceleration / scale;
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_A, maxDigits, accel);
+
+      // Make sure 1/2 A <= AA <= A as required per command reference.
+      // Use int arithmetic to ensure we don't run into rounding issues.
+      int iA = rint(pow(10.0, maxDigits) * accel);
+      int iAA = (iA % 2) ? iA / 2 + 1 : iA / 2;
+      double dA = iA / pow(10.0, maxDigits);
+      double dAA = iAA / pow(10.0, maxDigits);
+
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_A, maxDigits, dA);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
       
       //Set S curve parameters too
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AA, maxDigits, accel/2);
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AA, maxDigits, dAA);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
 
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AD, maxDigits, accel);
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AD, maxDigits, dA);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
 
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_ADA, maxDigits, accel);
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_ADA, maxDigits, dA);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
     }
