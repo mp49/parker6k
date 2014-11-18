@@ -43,7 +43,7 @@ const epicsUInt32 p6kController::P6K_ERROR_PRINT_TIME_ = 600; //seconds (this sh
 const epicsUInt32 p6kController::P6K_FORCED_FAST_POLLS_ = 10;
 const epicsUInt32 p6kController::P6K_OK_ = 0;
 const epicsUInt32 p6kController::P6K_ERROR_ = 1;
-const epicsUInt32 p6kController::P6K_MAX_DIGITS_ = 2;
+const epicsUInt32 p6kController::P6K_MAX_DIGITS_ = 4;
 
 const char * p6kController::P6K_ASYN_IEOS_ = ">";
 const char * p6kController::P6K_ASYN_OEOS_ = "\n";
