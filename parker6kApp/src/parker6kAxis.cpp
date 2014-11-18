@@ -431,7 +431,15 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
       epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_ADA, maxDigits, dA);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
+    } else {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_WARNING,
+              "%s: maximum velocity too small (exactly 0 or close to 0). Skip setting S curve parameters.\n",
+              functionName);
     }
+  } else {
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_WARNING,
+              "%s: acceleration too small (exactly 0 or close to 0). Skip setting S curve parameters.\n",
+              functionName);
   }
   
   //Don't set position if we are doing deferred moves.
