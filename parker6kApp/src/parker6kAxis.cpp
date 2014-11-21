@@ -385,6 +385,36 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
     return asynError;
   }
 
+  // If the limit drive mode is active we do not send commands to the
+  // controller that cannot be carried out because the corresponding limit
+  // switch already active. These commands would cause
+  // "INVALID CONDITIONS FOR COMMAND-AXIS" Asyn errors as well as STATE MAJOR
+  // alarms.
+  int32_t limitDriveEnable = 0;
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_LimitDriveEnable_, &limitDriveEnable);
+
+  if (limitDriveEnable) {
+    bool moving = true;
+    getAxisStatus(&moving);
+
+    int32_t highLimitHit = 0;
+    pC_->getIntegerParam(axisNo_, pC_->motorStatusHighLimit_, &highLimitHit);
+
+    int32_t lowLimitHit = 0;
+    pC_->getIntegerParam(axisNo_, pC_->motorStatusLowLimit_, &lowLimitHit);
+
+    double motorPosition = 0;
+    pC_->getDoubleParam(axisNo_, pC_->motorPosition_, &motorPosition);
+
+    if ((highLimitHit && (position >= pC_->motorPosition_)) ||
+        (lowLimitHit && (position <= pC_->motorPosition_))) {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_WARNING,
+              "%s: skip move since corresponding limit switch is already in NOK state.\n",
+              functionName);
+      return asynSuccess;
+    }
+  }
+
   if (autoDriveEnable() != asynSuccess) {
     return asynError;
   }
