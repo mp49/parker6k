@@ -107,6 +107,22 @@ record(longin, "$(M):AutoEnableDelay_RBV")
    field(SCAN, "I/O Intr")
 }
 
+# ///
+# /// If this mode is active commands that would move the motor to a point
+# /// beyond a limit switch that is already active are not sent to the
+# /// controller. This avoids Asyn errors and STATE MAJOR alarms.
+# ///
+record(bo, "$(M):LimitDrive")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_LIMIT_DRIVE_ENABLE")
+   field(ZNAM, "Disable")
+   field(ONAM, "Enable")
+   field(VAL,  "0")
+   info(autosaveFields, "VAL")
+}
+
 ############################################################################
 # Records to implement a timer to disable the drive power 
 # after the move ends.
