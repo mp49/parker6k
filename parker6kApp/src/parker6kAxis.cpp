@@ -25,6 +25,7 @@
 
 #include "parker6kController.h"
 #include <iostream>
+#include <limits>
 using std::cout;
 using std::endl;
 
@@ -104,6 +105,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   printErrors_ = true;
   commandError_ = false;
   axisError_ = false;
+  driveType_ = P6K_STEPPER_;
 
   p6k_cmddir_ = 0;
   p6k_drfen_ = 0;
@@ -127,12 +129,9 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   paramStatus = ((setIntegerParam(pC_->P6K_A_LH_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setStringParam(pC_->P6K_A_Error_, " ") == asynSuccess) && paramStatus);
   paramStatus = ((setStringParam(pC_->P6K_A_MoveError_, " ") == asynSuccess) && paramStatus);
-  paramStatus = ((setDoubleParam(pC_->P6K_A_DelayTime_, 0.0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_TAS_DriveFault_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_TAS_Timeout_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_TAS_PosErr_, 0) == asynSuccess) && paramStatus);
-  paramStatus = ((setIntegerParam(pC_->P6K_A_AutoDriveEnable_, 0) == asynSuccess) && paramStatus);
-  paramStatus = ((setIntegerParam(pC_->P6K_A_AutoDriveEnableDelay_, 0) == asynSuccess) && paramStatus);
   if (!paramStatus) {
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
 	      "%s Unable To Set Driver Parameters In Constructor. Axis:%d\n", 
@@ -261,11 +260,25 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
   if (axisNo_ != 0) {
-
-    stat = (readIntParam(P6K_CMD_AXSDEF, pC_->P6K_A_AXSDEF_, &intVal) == asynSuccess) && stat;
-    if (stat) {
-      driveType_ = intVal;
+    char command[P6K_MAXBUF] = {0};
+    char response[P6K_MAXBUF] = {0};
+    strncpy(command, P6K_CMD_TREV, P6K_MAXBUF);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    std::string revisionStr(response);
+    if(revisionStr.find(" GEM6K GT6K") != std::string::npos) {
+      driveType_ = P6K_STEPPER_;
+    } else if(revisionStr.find(" GEM6K GV6K") != std::string::npos) {
+      driveType_ = P6K_SERVO_;
+    } else if(revisionStr.find(" 6K") != std::string::npos) {
+      stat = (readIntParam(P6K_CMD_AXSDEF, pC_->P6K_A_AXSDEF_, &intVal) == asynSuccess) && stat;
+      if (stat) {
+        driveType_ = intVal;
+      }
+    } else {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+		"%s ERROR: Unsupported controller model.\n", functionName);
     }
+
     stat = (readIntParam(P6K_CMD_DRES, pC_->P6K_A_DRES_, &intVal) == asynSuccess) && stat;
     stat = (readIntParam(P6K_CMD_ERES, pC_->P6K_A_ERES_, &intVal) == asynSuccess) && stat;
     stat = (readIntParam(P6K_CMD_DRIVE, pC_->motorStatusPowerOn_, &intVal) == asynSuccess) && stat;
@@ -372,6 +385,36 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
     return asynError;
   }
 
+  // If the limit drive mode is active we do not send commands to the
+  // controller that cannot be carried out because the corresponding limit
+  // switch already active. These commands would cause
+  // "INVALID CONDITIONS FOR COMMAND-AXIS" Asyn errors as well as STATE MAJOR
+  // alarms.
+  int32_t limitDriveEnable = 0;
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_LimitDriveEnable_, &limitDriveEnable);
+
+  if (limitDriveEnable) {
+    bool moving = true;
+    getAxisStatus(&moving);
+
+    int32_t highLimitHit = 0;
+    pC_->getIntegerParam(axisNo_, pC_->motorStatusHighLimit_, &highLimitHit);
+
+    int32_t lowLimitHit = 0;
+    pC_->getIntegerParam(axisNo_, pC_->motorStatusLowLimit_, &lowLimitHit);
+
+    double motorPosition = 0;
+    pC_->getDoubleParam(axisNo_, pC_->motorPosition_, &motorPosition);
+
+    if ((highLimitHit && (position >= pC_->motorPosition_)) ||
+        (lowLimitHit && (position <= pC_->motorPosition_))) {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_WARNING,
+              "%s: skip move since corresponding limit switch is already in NOK state.\n",
+              functionName);
+      return asynSuccess;
+    }
+  }
+
   if (autoDriveEnable() != asynSuccess) {
     return asynError;
   }
@@ -390,26 +433,43 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
     memset(command, 0, sizeof(command));
   }
 
-  if (acceleration != 0) {
+  epicsFloat64 accel = acceleration / scale;
+
+  // Make sure 1/2 A <= AA <= A as required per command reference.
+  // Use int arithmetic to ensure we don't run into rounding issues.
+  int iA = rint(pow(10.0, maxDigits) * accel);
+  int iAA = (iA % 2) ? iA / 2 + 1 : iA / 2;
+  double dA = iA / pow(10.0, maxDigits);
+  double dAA = iAA / pow(10.0, maxDigits);
+
+  if (iA != 0) {
     if (max_velocity != 0) {
-      epicsFloat64 accel = acceleration / scale;
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_A, maxDigits, accel);
+
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_A, maxDigits, dA);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
       
       //Set S curve parameters too
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AA, maxDigits, accel/2);
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AA, maxDigits, dAA);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
 
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AD, maxDigits, accel);
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AD, maxDigits, dA);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
 
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_ADA, maxDigits, accel);
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_ADA, maxDigits, dA);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
+    } else {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_WARNING,
+              "%s: maximum velocity too small (exactly 0 or close to 0). Skip setting S curve parameters.\n",
+              functionName);
     }
+  } else {
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_WARNING,
+              "%s: acceleration too small (exactly 0 or close to 0). Skip setting S curve parameters.\n",
+              functionName);
   }
   
   //Don't set position if we are doing deferred moves.
@@ -698,24 +758,26 @@ asynStatus p6kAxis::setHighLimit(double highLimit)
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
-  epicsInt32 limit = static_cast<epicsInt32>(floor(highLimit + 0.5));
+  if(highLimit != std::numeric_limits<double>::infinity()) {
+    epicsInt32 limit = static_cast<epicsInt32>(floor(highLimit + 0.5));
 
-  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW,
-	    "%s: Setting high limit on controller %s, axis %d to %d\n",
-	    functionName, pC_->portName, axisNo_, limit);
-  
-  epicsSnprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
-  stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-  memset(command, 0, sizeof(command));
-  
-  epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSPOS, limit);
-  stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-  
-  if (!stat) {
-    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
-	      "%s: ERROR: Failed to set high limit on controller %s, axis %d\n",
-	      functionName, pC_->portName, axisNo_);
-    status = asynError;
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW,
+              "%s: Setting high limit on controller %s, axis %d to %d\n",
+              functionName, pC_->portName, axisNo_, limit);
+
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    memset(command, 0, sizeof(command));
+
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSPOS, limit);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+
+    if (!stat) {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+                "%s: ERROR: Failed to set high limit on controller %s, axis %d\n",
+                functionName, pC_->portName, axisNo_);
+      status = asynError;
+    }
   }
   
   return status;
@@ -734,24 +796,26 @@ asynStatus p6kAxis::setLowLimit(double lowLimit)
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
-  epicsInt32 limit = static_cast<epicsInt32>(floor(lowLimit + 0.5));
+  if(lowLimit != -std::numeric_limits<double>::infinity()) {
+    epicsInt32 limit = static_cast<epicsInt32>(floor(lowLimit + 0.5));
 
-  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW,
-	    "%s: Setting high limit on controller %s, axis %d to %d\n",
-	    functionName, pC_->portName, axisNo_, limit);
-  
-  epicsSnprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
-  stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-  memset(command, 0, sizeof(command));
-  
-  epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSNEG, limit);
-  stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-  
-  if (!stat) {
-    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
-	      "%s: ERROR: Failed to set low limit on controller %s, axis %d\n",
-	      functionName, pC_->portName, axisNo_);
-    status = asynError;
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW,
+              "%s: Setting high limit on controller %s, axis %d to %d\n",
+              functionName, pC_->portName, axisNo_, limit);
+
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    memset(command, 0, sizeof(command));
+
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSNEG, limit);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+
+    if (!stat) {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+                "%s: ERROR: Failed to set low limit on controller %s, axis %d\n",
+                functionName, pC_->portName, axisNo_);
+      status = asynError;
+    }
   }
   
   return status;
@@ -996,6 +1060,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       int32_t tlim_size = 0;
       pC_->getIntegerParam(pC_->P6K_C_TLIM_Bits_, &tlim_bits);
       stat = (setIntegerParam(pC_->motorStatusAtHome_, 0) == asynSuccess) && stat;
+      stat = (setIntegerParam(pC_->motorStatusHome_, 0) == asynSuccess) && stat;
       if (tlim_bits > 0) {
 	tlim_size = (axisNo_ - 1)*pC_->P6K_TLIM_SIZE_;
 	if ((tlim_bits & (0x1 << (tlim_size + pC_->P6K_TLIM_BIT1_))) == 0) {
@@ -1006,6 +1071,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
 	}
 	if (tlim_bits & (0x1 << (tlim_size + pC_->P6K_TLIM_BIT3_))) {
 	  stat = (setIntegerParam(pC_->motorStatusAtHome_, 1) == asynSuccess) && stat;
+	  stat = (setIntegerParam(pC_->motorStatusHome_, 1) == asynSuccess) && stat;
 	}
       }
       

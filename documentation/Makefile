@@ -1,10 +1,12 @@
 
-.PHONY: doc clean install
+.PHONY: doc clean realclean install
 
 install: doc
 
 doc: Doxyfile
 	doxygen Doxyfile
 
-clean:
+clean: realclean
+
+realclean:
 	rm -rf doxygen

@@ -2,7 +2,6 @@
 bin/
 db/
 dbd/
-html/
 include/
 lib/
 templates/
@@ -16,22 +15,11 @@ O.windows-x64/
 cdCommands
 envPaths
 
-documentation/doxygen/
-
 # VI and EDM temp files
 *~
 
 # Compiled python files
 *.pyc
 
-# Oddballs
-support/areaDetector/iocBoot/iocSimDetector/autosave
-support/areaDetector/iocBoot/iocAndor/autosave
-support/areaDetector/iocBoot/iocURLDriver/autosave/
-support/devIocStats/edl
-extensions/src/cothread/build/
-extensions/src/cothread/cothread.egg-info/
-extensions/src/cothread/cothread/_coroutine.so
-extensions/src/cothread/cothread/libca_path.py
-extensions/src/cothread/dist/
+
 

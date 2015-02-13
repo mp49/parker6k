@@ -43,7 +43,7 @@ const epicsUInt32 p6kController::P6K_ERROR_PRINT_TIME_ = 600; //seconds (this sh
 const epicsUInt32 p6kController::P6K_FORCED_FAST_POLLS_ = 10;
 const epicsUInt32 p6kController::P6K_OK_ = 0;
 const epicsUInt32 p6kController::P6K_ERROR_ = 1;
-const epicsUInt32 p6kController::P6K_MAX_DIGITS_ = 2;
+const epicsUInt32 p6kController::P6K_MAX_DIGITS_ = 4;
 
 const char * p6kController::P6K_ASYN_IEOS_ = ">";
 const char * p6kController::P6K_ASYN_OEOS_ = "\n";
@@ -147,6 +147,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_A_DRIVEString,            asynParamInt32, &P6K_A_DRIVE_);
   createParam(P6K_A_AXSDEFString,           asynParamInt32, &P6K_A_AXSDEF_);
   createParam(P6K_A_MaxDigitsString,        asynParamInt32, &P6K_A_MaxDigits_);
+  createParam(P6K_A_LimitDriveEnableString, asynParamInt32, &P6K_A_LimitDriveEnable_);
   createParam(P6K_A_LSString,               asynParamInt32, &P6K_A_LS_);
   createParam(P6K_A_LHString,               asynParamInt32, &P6K_A_LH_);
   createParam(P6K_A_CommandString,          asynParamOctet, &P6K_A_Command_);
@@ -206,19 +207,15 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
     paramStatus = ((setStringParam(P6K_C_Response_, " ") == asynSuccess) && paramStatus);
     paramStatus = ((setStringParam(P6K_C_Error_, " ") == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_Config_, 1) == asynSuccess) && paramStatus);
-    paramStatus = ((setIntegerParam(P6K_C_Log_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_SystemReady_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_ProgRunning_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_Immediate_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_CmdError_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TSS_MemError_, 0) == asynSuccess) && paramStatus);
-    paramStatus = ((setIntegerParam(P6K_C_TLIM_Enable_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TLIM_Bits_, 0) == asynSuccess) && paramStatus);
-    paramStatus = ((setIntegerParam(P6K_C_INOUT_Enable_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TOUT_Bits_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_TIN_Bits_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_OUT_Bit_, 1) == asynSuccess) && paramStatus);
-    paramStatus = ((setIntegerParam(P6K_C_OUT_Val_, 0) == asynSuccess) && paramStatus);
     paramStatus = ((setIntegerParam(P6K_C_OUT_All_, 0) == asynSuccess) && paramStatus);
     callParamCallbacks();
 

@@ -21,21 +21,17 @@
 
 TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
 
--include $(TOP)/../../../setup_release
-SUPPORT=$(EPICS_SUPPORT)
+EPICS=/home/controls/epics
+SUPPORT=$(EPICS)
 
-ASYN=           $(SUPPORT)/asyn
-MOTOR=		$(SUPPORT)/motor
-PARKER6K=       $(SUPPORT)/parker6k
-AUTOSAVE=       $(SUPPORT)/autosave
-DEVIOCSTATS=    $(SUPPORT)/devIocStats
-GENERICIO=	$(SUPPORT)/genericIO
+ASYN=           $(SUPPORT)/asyn/master
+MOTOR=		$(SUPPORT)/motor/master
+PARKER6K=       $(SUPPORT)/parker6k/master
+AUTOSAVE=       $(SUPPORT)/autosave/master
+DEVIOCSTATS=    $(SUPPORT)/devIocStats/master
+GENERICIO=	$(SUPPORT)/genericIO/master
 
-#BUSY=           $(SUPPORT)/busy
-#SSCAN=          $(SUPPORT)/sscan
-#CALC=           $(SUPPORT)/calc
-#SNCSEQ=         $(SUPPORT)/seq
-#STD=         $(SUPPORT)/std
+EPICS_BASE=	$(EPICS)/base/master
 
 # Set RULES here if you want to take build rules from somewhere
 # other than EPICS_BASE:
