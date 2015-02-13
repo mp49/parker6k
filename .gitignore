@@ -15,6 +15,8 @@ O.windows-x64/
 cdCommands
 envPaths
 
+documentation/doxygen/
+
 # VI and EDM temp files
 *~
 
