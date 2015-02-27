@@ -6,8 +6,8 @@ import time
 import cothread
 from cothread.catools import *
 
-from p6k_lib import p6k_lib
-from p6k_globals import p6k_globals
+from motor_lib import motor_lib
+from motor_globals import motor_globals
 
 def main():
 
@@ -18,8 +18,8 @@ def main():
     on = 1
     off = 0
 
-    lib = p6k_lib()
-    g = p6k_globals()
+    lib = motor_lib()
+    g = motor_globals()
 
     #Enable auto drive control
     caput(pv1+":AutoEnable", on, wait=True, timeout=g.TIMEOUT)
