@@ -72,38 +72,72 @@ record(waveform, "$(M):MoveErrorMessage")
 
 # ///
 # /// Automatic drive enable (enable drive at the start of a move)
+# /// This uses the base class parameter MOTOR_POWER_AUTO_ONOFF
 # ///
 record(bo, "$(M):AutoEnable")
 {
    field(PINI, "YES")
    field(DTYP, "asynInt32")
-   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_AUTO_DRIVE_ENABLE")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))MOTOR_POWER_AUTO_ONOFF")
    field(ZNAM, "No")
    field(ONAM, "Yes")
    field(VAL,  "0")
    info(autosaveFields, "VAL")
+}
+record(bi, "$(M):AutoEnable_RBV")
+{
+   field(DTYP, "asynInt32")
+   field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))MOTOR_POWER_AUTO_ONOFF")
+   field(ZNAM, "No")
+   field(ONAM, "Yes")
+   field(SCAN, "I/O Intr")
 }
 
 # ///
 # /// Time delay between automatic drive enable and the actual move.
 # /// This delays the move function, so locks the low level
 # /// driver for the time period.
-# /// Units = milliseconds.
 # ///
-record(longout, "$(M):AutoEnableDelay")
+record(ao, "$(M):AutoEnableDelay")
 {
+   field(DESC, "Delay after power on")
    field(PINI, "YES")
-   field(DTYP, "asynInt32")
-   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_AUTO_DRIVE_ENABLE_DELAY")
+   field(DTYP, "asynFloat64")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))MOTOR_POWER_ON_DELAY")
    field(VAL,  "0")
-   field(EGU, "ms")
+   field(EGU, "s")
+   field(PREC, "1")
    info(autosaveFields, "VAL")
 }
-record(longin, "$(M):AutoEnableDelay_RBV")
+record(ai, "$(M):AutoEnableDelay_RBV")
 {
-   field(DTYP, "asynInt32")
-   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_AUTO_DRIVE_ENABLE_DELAY")
-   field(EGU, "ms")
+   field(DTYP, "asynFloat64")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))MOTOR_POWER_ON_DELAY")
+   field(EGU, "s")
+   field(PREC, "1")
+   field(SCAN, "I/O Intr")
+}
+
+# ///
+# /// Delay in seconds to execute the drive disable
+# ///
+record(ao, "$(M):AutoDisableDelay")
+{
+   field(DESC, "Delay after power off")
+   field(DTYP, "asynFloat64")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))MOTOR_POWER_OFF_DELAY")
+   field(VAL, "0")
+   field(PINI, "YES")
+   field(EGU, "s")
+   field(PREC, "1")
+   info(autosaveFields, "VAL")
+}
+record(ai, "$(M):AutoDisableDelay_RBV")
+{
+   field(DTYP, "asynFloat64")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))MOTOR_POWER_OFF_DELAY")
+   field(EGU, "s")
+   field(PREC, "1")
    field(SCAN, "I/O Intr")
 }
 
@@ -124,35 +158,10 @@ record(bo, "$(M):LimitDrive")
 }
 
 ############################################################################
-# Records to implement a timer to disable the drive power 
-# after the move ends.
+# Time since last move
 
 # ///
-# /// Automatic drive disable 
-# /// Disable drive after a configurable time. This record
-# /// enables/disables the record logic that deals with this.
-# ///
-record(bo, "$(M):AutoDisable")
-{
-   field(PINI, "YES")
-   field(ZNAM, "No")
-   field(ONAM, "Yes")
-   field(VAL,  "0")
-   info(autosaveFields, "VAL")
-   field(FLNK, "$(M):AutoDisableSDIS")
-}
-
-record(calc, "$(M):AutoDisableSDIS")
-{
-   field(INPA, "$(M):AutoDisable.VAL")
-   field(CALC, "!A")
-   field(FLNK, "$(M):AutoDisableAction")
-}
-
-# ///
-# /// Timer for the automatic drive disable.
-# /// This is disabled when a move is in progress,
-# /// and reset+enabled at the end of a move.
+# /// Time since last move
 # ///
 record(calcout, "$(M):AutoDisableTimer")
 {
@@ -161,35 +170,11 @@ record(calcout, "$(M):AutoDisableTimer")
    field(OUT, "$(M):AutoDisableTimer.A NPP")
    field(SCAN, "1 second")
    field(EGU, "s")
-   field(FLNK, "$(M):AutoDisableAction")
-}
-record(calcout, "$(M):AutoDisableAction")
-{
-   field(DESC, "Disable Drive")
-   field(INPA, "$(M):AutoDisableTimer.VAL")
-   field(INPB, "$(M):AutoDisableDelay")
-   field(CALC, "A==B")
-   field(OOPT, "When Non-zero")
-   field(DOPT, "Use OCAL")
-   field(OCAL, "0")
-   field(OUT, "$(M).CNEN PP")
-   field(SDIS, "$(M):AutoDisableSDIS")     
 }
 
 # ///
-# /// Delay in seconds to execute the drive disable
-# ///
-record(longout, "$(M):AutoDisableDelay")
-{
-   field(DESC, "Disable Drive Delay")
-   field(VAL, "0")
-   field(EGU, "s")
-   info(autosaveFields, "VAL")
-}
-
-# ///
-# /// Disable AutoDriveDisableTimer when a move is active.
-# /// Also Reset AutoDriveDisableTimer on any DMOV transition
+# /// Disable AutoDisableTimer when a move is active.
+# /// Also Reset AutoDisableTimer on any DMOV transition
 # ///
 record(calcout, "$(M):AutoDisableCtrl")
 {
