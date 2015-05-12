@@ -32,6 +32,13 @@ file motor_stage_move_access.db
 pattern {M}
 	{BL99:Mot:Sample}
 
+file following_error_stop.db
+{
+pattern {P, M, MAX, TIME}
+        {BL99:, Mot:P6K1, 1.0, 5}
+}
+
+
 # This example db file is doe automatic amp power control.
 # But it's now in the p6k_axis.template too.
 #file asyn_auto_power.db
