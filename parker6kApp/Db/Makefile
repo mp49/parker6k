@@ -12,6 +12,7 @@ include $(TOP)/configure/CONFIG
 # databases, templates, substitutions like this
 DB += p6k_axis.template
 DB += p6k_controller.template
+DB += p6k_axis_home.template
 
 #----------------------------------------------------
 # If <anyname>.db template is not named <anyname>*.template add
