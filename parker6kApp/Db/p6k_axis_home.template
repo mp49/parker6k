@@ -16,8 +16,8 @@
 # ///
 # /// Home Type
 # /// None - No Action (default)
-# /// 6K HOME Neg - Execute 6K HOM1 command (positive direction)
-# /// 6K HOME Pos - Execute 6K HOM0 command (negative direction)
+# /// 6K HOME Neg - Execute 6K HOM1 command (negative direction)
+# /// 6K HOME Pos - Execute 6K HOM0 command (positive direction)
 # /// Neg Limit - Home on negative limit
 # /// Pos Limit - Home on positive limit
 # /// Set As Home - Use current position as home (replace with home offset)
