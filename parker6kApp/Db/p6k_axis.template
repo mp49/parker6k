@@ -157,6 +157,31 @@ record(bo, "$(M):LimitDrive")
    info(autosaveFields, "VAL")
 }
 
+# ///
+# /// If this is enabled then the driver will only send a new position
+# /// to the controller and not the latest value of the velocity 
+# /// and acceleration parameters (which also includes the S-curve parameters).
+# ///
+record(bo, "$(M):SendPositionOnly")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_SEND_POSITION_ONLY")
+   field(ZNAM, "Disable")
+   field(ONAM, "Enable")
+   field(VAL,  "0")
+   info(autosaveFields, "VAL")
+}
+record(bi, "$(M):SendPositionOnly_RBV")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_SEND_POSITION_ONLY")
+   field(ZNAM, "Disable")
+   field(ONAM, "Enable")
+   field(SCAN, "I/O Intr")
+}
+
+
 ############################################################################
 # Time since last move
 

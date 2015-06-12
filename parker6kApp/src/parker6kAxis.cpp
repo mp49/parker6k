@@ -426,11 +426,17 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
   status = pC_->lowLevelWriteRead(command, response);
   memset(command, 0, sizeof(command));
 
-  if (max_velocity != 0) {
-    epicsFloat64 vel = max_velocity / scale;
-    epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_V, maxDigits, vel);
-    status = pC_->lowLevelWriteRead(command, response);
-    memset(command, 0, sizeof(command));
+  //If SendPositionOnly is active, then we don't want to set velocity and accel params
+  int32_t sendPositionOnly = 0;
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_SendPositionOnly_, &sendPositionOnly);
+
+  if (sendPositionOnly == 0) {
+    if (max_velocity != 0) {
+      epicsFloat64 vel = max_velocity / scale;
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_V, maxDigits, vel);
+      status = pC_->lowLevelWriteRead(command, response);
+      memset(command, 0, sizeof(command));
+    }
   }
 
   epicsFloat64 accel = acceleration / scale;
@@ -442,35 +448,37 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
   double dA = iA / pow(10.0, maxDigits);
   double dAA = iAA / pow(10.0, maxDigits);
 
-  if (iA != 0) {
-    if (max_velocity != 0) {
-
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_A, maxDigits, dA);
-      status = pC_->lowLevelWriteRead(command, response);
-      memset(command, 0, sizeof(command));
-      
-      //Set S curve parameters too
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AA, maxDigits, dAA);
-      status = pC_->lowLevelWriteRead(command, response);
-      memset(command, 0, sizeof(command));
-
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AD, maxDigits, dA);
-      status = pC_->lowLevelWriteRead(command, response);
-      memset(command, 0, sizeof(command));
-
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_ADA, maxDigits, dA);
-      status = pC_->lowLevelWriteRead(command, response);
-      memset(command, 0, sizeof(command));
+  if (sendPositionOnly == 0) {
+    if (iA != 0) {
+      if (max_velocity != 0) {
+	
+	epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_A, maxDigits, dA);
+	status = pC_->lowLevelWriteRead(command, response);
+	memset(command, 0, sizeof(command));
+	
+	//Set S curve parameters too
+	epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AA, maxDigits, dAA);
+	status = pC_->lowLevelWriteRead(command, response);
+	memset(command, 0, sizeof(command));
+	
+	epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_AD, maxDigits, dA);
+	status = pC_->lowLevelWriteRead(command, response);
+	memset(command, 0, sizeof(command));
+	
+	epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_ADA, maxDigits, dA);
+	status = pC_->lowLevelWriteRead(command, response);
+	memset(command, 0, sizeof(command));
+      } else {
+	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_WARNING,
+		  "%s: maximum velocity too small (exactly 0 or close to 0). Skip setting S curve parameters.\n",
+		  functionName);
+      }
     } else {
       asynPrint(pC_->pasynUserSelf, ASYN_TRACE_WARNING,
-              "%s: maximum velocity too small (exactly 0 or close to 0). Skip setting S curve parameters.\n",
-              functionName);
+		"%s: acceleration too small (exactly 0 or close to 0). Skip setting S curve parameters.\n",
+		functionName);
     }
-  } else {
-    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_WARNING,
-              "%s: acceleration too small (exactly 0 or close to 0). Skip setting S curve parameters.\n",
-              functionName);
-  }
+  } //end if (sendPositionOnly == 0)
   
   //Don't set position if we are doing deferred moves.
   //In case we cancel the deferred move.

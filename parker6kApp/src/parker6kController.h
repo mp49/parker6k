@@ -47,6 +47,7 @@
 #define P6K_A_AXSDEFString     "P6K_A_AXSDEF"
 #define P6K_A_MaxDigitsString  "P6K_A_MAXDIGITS"
 #define P6K_A_LimitDriveEnableString  "P6K_A_LIMIT_DRIVE_ENABLE"
+#define P6K_A_SendPositionOnlyString  "P6K_A_SEND_POSITION_ONLY"
 #define P6K_A_CommandString    "P6K_A_COMMAND"
 #define P6K_A_ResponseString   "P6K_A_RESPONSE"
 #define P6K_A_LSString         "P6K_A_LS"
@@ -146,6 +147,7 @@ class p6kController : public asynMotorController {
   int P6K_A_AXSDEF_;
   int P6K_A_MaxDigits_;
   int P6K_A_LimitDriveEnable_;
+  int P6K_A_SendPositionOnly_;
   int P6K_A_LS_;
   int P6K_A_LH_;
   int P6K_C_Command_;
