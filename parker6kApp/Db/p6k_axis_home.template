@@ -5,7 +5,7 @@
 # 
 # Macros:
 # M - base PV name (should match the motor record)
-# H_TYPE - home type (See $(S):HomeType record for options)
+# H_TYPE - home type (See $(M):HomeType record for options)
 # H_POS - home offset to set at end of home procedure
 #
 # Matt Pearson & Gayle Green
