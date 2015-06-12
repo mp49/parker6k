@@ -11,6 +11,7 @@
 # PORT - asyn motor driver port
 # ADDR - asyn address (ie. axis number)
 # TIMEOUT - asyn timeout (eg 1)
+# POS_ONLY - Set this to 1 to tell the driver to only send position commands (not velocity and accel).
 #
 # Matt Pearson
 # May 2014
@@ -169,7 +170,7 @@ record(bo, "$(M):SendPositionOnly")
    field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_SEND_POSITION_ONLY")
    field(ZNAM, "Disable")
    field(ONAM, "Enable")
-   field(VAL,  "0")
+   field(VAL,  "$(POS_ONLY=0)")
    info(autosaveFields, "VAL")
 }
 record(bi, "$(M):SendPositionOnly_RBV")
