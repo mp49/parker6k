@@ -597,35 +597,43 @@ asynStatus p6kAxis::home(double min_velocity, double max_velocity, double accele
     return asynError;
   }
 
-  if (max_velocity != 0) {
-    epicsFloat64 vel = max_velocity / scale;
-    epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMV, maxDigits, vel);
-    status = pC_->lowLevelWriteRead(command, response);
-    memset(command, 0, sizeof(command));
-  }
+  //If SendPositionOnly is active, then we don't want to set velocity and accel params
+  int32_t sendPositionOnly = 0;
+  pC_->getIntegerParam(axisNo_, pC_->P6K_A_SendPositionOnly_, &sendPositionOnly);
 
-  if (acceleration != 0) {
+  if (sendPositionOnly == 0) {
     if (max_velocity != 0) {
-      epicsFloat64 accel = acceleration / scale;
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMA, maxDigits, accel);
-      status = pC_->lowLevelWriteRead(command, response);
-      memset(command, 0, sizeof(command));
-      
-      //Set S curve parameters too
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMAA, maxDigits, accel/2);
-      status = pC_->lowLevelWriteRead(command, response);
-      memset(command, 0, sizeof(command));
-
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMAD, maxDigits, accel);
-      status = pC_->lowLevelWriteRead(command, response);
-      memset(command, 0, sizeof(command));
-
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMADA, maxDigits, accel);
+      epicsFloat64 vel = max_velocity / scale;
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMV, maxDigits, vel);
       status = pC_->lowLevelWriteRead(command, response);
       memset(command, 0, sizeof(command));
     }
   }
 
+  if (sendPositionOnly == 0) {
+    if (acceleration != 0) {
+      if (max_velocity != 0) {
+	epicsFloat64 accel = acceleration / scale;
+	epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMA, maxDigits, accel);
+	status = pC_->lowLevelWriteRead(command, response);
+	memset(command, 0, sizeof(command));
+	
+	//Set S curve parameters too
+	epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMAA, maxDigits, accel/2);
+	status = pC_->lowLevelWriteRead(command, response);
+	memset(command, 0, sizeof(command));
+	
+	epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMAD, maxDigits, accel);
+	status = pC_->lowLevelWriteRead(command, response);
+	memset(command, 0, sizeof(command));
+	
+	epicsSnprintf(command, P6K_MAXBUF, "%d%s%.*f", axisNo_, P6K_CMD_HOMADA, maxDigits, accel);
+	status = pC_->lowLevelWriteRead(command, response);
+	memset(command, 0, sizeof(command));
+      }
+    }
+  } // end if (sendPositionOnly == 0)
+  
   epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_HOM, (forwards>0?0:1));
   status = pC_->lowLevelWriteRead(command, response);
   memset(command, 0, sizeof(command));
