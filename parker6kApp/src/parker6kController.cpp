@@ -1009,7 +1009,8 @@ asynStatus p6kController::upload(const char *filename)
       line[strlen(line)-1]='\0';
       //reject if any whitespace
       if (strpbrk(line, whitespace) == NULL) {
-	printf("%s: %s\n", functionName, line);  
+	printf("%s: %s\n", functionName, line);
+	epicsThreadSleep(0.05);
 	if (lowLevelWriteRead(line, response) != asynSuccess) {
 	  asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, 
 		    "%s: Command %s failed.\n", functionName, line);
@@ -1042,6 +1043,8 @@ asynStatus p6kController::upload(const char *filename)
     setIntegerParam(P6K_C_Config_, 0);
     callParamCallbacks();
   }
+
+  epicsThreadSleep(5);
 
   return status;
 }
