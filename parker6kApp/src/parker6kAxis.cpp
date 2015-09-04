@@ -1127,7 +1127,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       if (stringVal[P6K_TAS_DRIVEFAULT_] == pC_->P6K_ON_) {
 	stat = (setIntegerParam(pC_->P6K_A_TAS_DriveFault_, 1) == asynSuccess) && stat;
 	problem = 1;
-	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
 		  "%s: ERROR: Drive fault on controller %s, axis %d\n", 
 		  functionName, pC_->portName, axisNo_);
       } else {
