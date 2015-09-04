@@ -1157,7 +1157,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       stat = (setIntegerParam(pC_->motorStatusProblem_, (problem!=0)) == asynSuccess) && stat;
       if (problem == 1) {
 	axisError_ = true;
-	setStringParam(pC_->P6K_A_Error_, "ERROR: Moved Failed");
+	setStringParam(pC_->P6K_A_Error_, "ERROR: Problem detected or move failed.");
       }
 
       if (!stat) {
