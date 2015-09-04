@@ -415,6 +415,8 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
     }
   }
 
+  //Enable the drive if we are using this drivers parameter to control power.
+  //NOTE: this function will fail if the drive is not on.
   if (autoDriveEnable() != asynSuccess) {
     return asynError;
   }
@@ -559,6 +561,19 @@ asynStatus p6kAxis::autoDriveEnable(void)
       setStringParam(pC_->P6K_A_MoveError_, "ERROR: Failed to enable drive");
       return asynError;
     }
+  } else {
+    //If auto_drive_enable is not on, check motor power is on. Return an error if not.
+    //If we send move commands to the GT6K/6K controllers, without the power on
+    //then the next move will fail even if we enable the power. So we try to
+    //prevent that by this check.
+    int32_t power = 0;
+    pC_->getIntegerParam(axisNo_, pC_->motorStatusPowerOn_, &power);
+    if (power == 0) {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+		"%s ERROR: Not sending move because drive is off. Axis: %d\n", functionName, axisNo_);
+      setStringParam(pC_->P6K_A_MoveError_, "ERROR: Drive was off when attempting last move.");
+      return asynError;
+    }
   }
 
   int32_t drive_enable_delay = 0;
@@ -593,6 +608,8 @@ asynStatus p6kAxis::home(double min_velocity, double max_velocity, double accele
     return asynError;
   }
 
+  //Enable the drive if we are using this drivers parameter to control power.
+  //NOTE: this function will fail if the drive is not on.
   if (autoDriveEnable() != asynSuccess) {
     return asynError;
   }
