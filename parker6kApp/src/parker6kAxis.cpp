@@ -1127,9 +1127,12 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       if (stringVal[P6K_TAS_DRIVEFAULT_] == pC_->P6K_ON_) {
 	stat = (setIntegerParam(pC_->P6K_A_TAS_DriveFault_, 1) == asynSuccess) && stat;
 	problem = 1;
-	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
-		  "%s: ERROR: Drive fault on controller %s, axis %d\n", 
-		  functionName, pC_->portName, axisNo_);
+	if (printErrors_) {
+	  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+		    "%s: ERROR: Drive fault on controller %s, axis %d\n", 
+		    functionName, pC_->portName, axisNo_);
+	  printNextError_ = false;
+	}
       } else {
 	stat = (setIntegerParam(pC_->P6K_A_TAS_DriveFault_, 0) == asynSuccess) && stat;
       }
@@ -1137,9 +1140,12 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       if (stringVal[P6K_TAS_TARGETTIMEOUT_] == pC_->P6K_ON_) {
 	stat = (setIntegerParam(pC_->P6K_A_TAS_Timeout_, 1) == asynSuccess) && stat;
 	problem = 1;
-	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
-		    "%s: ERROR: Target timeout on controller %s, axis %d\n", 
-		  functionName, pC_->portName, axisNo_);
+	if (printErrors_) {
+	  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+	  	    "%s: ERROR: Target timeout on controller %s, axis %d\n", 
+	  	    functionName, pC_->portName, axisNo_);
+	  printNextError_ = false;
+	}
       } else {
 	stat = (setIntegerParam(pC_->P6K_A_TAS_Timeout_, 0) == asynSuccess) && stat;
       }
@@ -1147,9 +1153,12 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       if (stringVal[P6K_TAS_POSERROR_] == pC_->P6K_ON_) {
 	stat = (setIntegerParam(pC_->P6K_A_TAS_PosErr_, 1) == asynSuccess) && stat;
 	problem = 1;
-	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
-		  "%s: ERROR: Position error on controller %s, axis %d\n", 
-		  functionName, pC_->portName, axisNo_);
+	if (printErrors_) {
+	  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+	  	    "%s: ERROR: Position error on controller %s, axis %d\n", 
+		    functionName, pC_->portName, axisNo_);
+	  printNextError_ = false;
+	}
       } else {
 	stat = (setIntegerParam(pC_->P6K_A_TAS_PosErr_, 0) == asynSuccess) && stat;
       }
