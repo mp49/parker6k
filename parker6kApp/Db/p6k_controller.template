@@ -140,18 +140,21 @@ record(longin, "$(S):TIN")
    field(SCAN, "I/O Intr")
 }
 
+# NOTE: don't autosave the OUT bit records. At the moment all we can do is either
+# autosave them all on, or one of them, which doesn't work if a selection of bits
+# are on. To do this properly we will have to have seperate records for each out bit.
+
 # ///
 # /// Enable or disable all OUT bits.
 # ///
 record(bo, "$(S):EnableOUT")
 {
-   field(PINI, "YES")
    field(DTYP, "asynInt32")
    field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_OUT_ALL")
    field(ZNAM, "All Off")
    field(ONAM, "All On")
    field(VAL,  "0")
-   info(autosaveFields, "VAL")
+#   info(autosaveFields, "VAL")
 }
 
 # ///
@@ -177,7 +180,7 @@ record(mbbo, "$(S):OUTBit")
    field(SXVL, "7")
    field(SVST, "OUT 8")
    field(SVVL, "8")
-   info(autosaveFields, "VAL")
+#   info(autosaveFields, "VAL")
 }
 
 # ///
@@ -186,13 +189,12 @@ record(mbbo, "$(S):OUTBit")
 # ///
 record(bo, "$(S):OUTVal")
 {
-   field(PINI, "NO")
    field(DTYP, "asynInt32")
    field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_C_OUT_VAL")
    field(ZNAM, "Off")
    field(ONAM, "On")
    field(VAL,  "0")
-   info(autosaveFields, "VAL")
+#   info(autosaveFields, "VAL")
 }
 
 # ///
