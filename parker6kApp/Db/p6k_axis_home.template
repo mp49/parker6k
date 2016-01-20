@@ -6,7 +6,9 @@
 # Macros:
 # M - base PV name (should match the motor record)
 # H_TYPE - home type (See $(M):HomeType record for options)
-# H_POS - home offset to set at end of home procedure
+# H_OFFSET - home offset to set at end of home procedure
+# H_SPEED - home speed. This may be used when backing off a limit switch.
+# H_BACKOFF - home backoff. The distance to backoff a limit switch.
 #
 # Matt Pearson & Gayle Green
 # June 2015
@@ -45,6 +47,22 @@ record(mbbo, "$(M):HomeType")
 record(ao, "$(M):HomeOffset")
 {
    field(VAL, "$(H_OFFSET=0)")
+}
+
+# ///
+# /// Home speed (defaults to 0.1)
+# ///
+record(ao, "$(M):HomeSpeed")
+{
+   field(VAL, "$(H_SPEED=0.1)")
+}
+
+# ///
+# /// Home backoff distance (defaults to 0)
+# ///
+record(ao, "$(M):HomeBackoff")
+{
+   field(VAL, "$(H_BACKOFF=0)")
 }
 
 
