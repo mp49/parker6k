@@ -6,7 +6,7 @@
 # Macros:
 # M - base PV name (should match the motor record)
 # H_TYPE - home type (See $(M):HomeType record for options)
-# H_OFFSET - home offset to set at end of home procedure
+# H_OFFSET - home position to set at end of home procedure
 # H_SPEED - home speed. This may be used when backing off a limit switch.
 # H_BACKOFF - home backoff. The distance to backoff a limit switch.
 #
@@ -26,6 +26,7 @@
 # ///
 record(mbbo, "$(M):HomeType")
 {
+   field(PINI, "YES")
    field(VAL, "$(H_TYPE=0)")
    field(ZRVL, "0")
    field(ONVL, "1")
@@ -44,8 +45,9 @@ record(mbbo, "$(M):HomeType")
 # ///
 # /// Home offset position
 # ///
-record(ao, "$(M):HomeOffset")
+record(ao, "$(M):HomePostion")
 {
+   field(PINI, "YES")
    field(VAL, "$(H_OFFSET=0)")
 }
 
@@ -54,6 +56,7 @@ record(ao, "$(M):HomeOffset")
 # ///
 record(ao, "$(M):HomeSpeed")
 {
+   field(PINI, "YES")
    field(VAL, "$(H_SPEED=0.1)")
 }
 
@@ -62,8 +65,102 @@ record(ao, "$(M):HomeSpeed")
 # ///
 record(ao, "$(M):HomeBackoff")
 {
+   field(PINI, "YES")
    field(VAL, "$(H_BACKOFF=0)")
 }
 
+# ///
+# /// Seq to aid in setting the home offset position
+# /// The existing user offset is preserved
+# ///
+record(seq, "$(M):HomePositionSet")
+{	
+   field(DLY1, "0")
+   field(DOL1, "$(M).OFF")
+   field(LNK1, "$(M):UserOffsetStore PP")
+   field(DLY2, "0")
+   field(DOL2, "$(M).RBV")
+   field(LNK2, "$(M):RBVStore PP")
+   field(DLY3, "1")
+   field(DOL3, "1")
+   field(LNK3, "$(M).SET PP")
+   field(DLY4, "1")
+   field(DOL4, "$(M):HomePosition")
+   field(LNK4, "$(M).DVAL PP")
+   field(DLY5, "2")
+   field(DOL5, "$(M):UserOffsetStore")
+   field(LNK5, "$(M).OFF PP")
+   field(DLY6, "1")
+   field(DOL6, "1")
+   field(LNK6, "$(M).SET PP")
+   field(DLY7, "0")
+   field(DOL7, "0")
+   field(LNK7, "$(M):UserOffsetStore PP")
+   field(DLY8, "0")
+   field(DOL8, "1")
+   field(LNK8, "$(M):RBVChangeCalc.PROC PP")
+   field(FLNK, "$(M):HomeCounter")
+}
+
+# ///
+# /// Stored OFF field. This is used by $(M):HomeOffsetSet
+# /// to store the OFF during the set position procedure. It is set back 
+# /// to zero at the end of the set position sequence.
+# ///
+record(ao, "$(M):OffsetStore")
+{
+   info(archive, "Monitor, 00:00:01, VAL")
+}
+
+# ///
+# /// Record to store the RBV field before the sequence.
+# /// After the set position seq has completed, we calculate the change
+# /// in position so we can report the offset to the user.
+# ///
+record(ao, "$(M):RBVStore")
+{
+   info(archive, "Monitor, 00:00:01, VAL")
+}
+record(calcout, "$(M):RBVChangeCalc")
+{
+   field(INPA, "$(M):RBVStore")
+   field(INPB, "$(M).RBV")
+   field(CALC, "A-B")
+   field(OOPT, "Every Time")
+   field(DOPT, "Use CALC")
+   field(OUT, "$(M):RBVChange PP")
+}
+record(ao, "$(M):RBVChange")
+{
+   info(archive, "Monitor, 00:00:01, VAL")
+}
+
+
+# ///
+# /// Number of times this axis has been homed
+# ///
+record(calc, "$(M):HomeCounter") 
+{
+   field(INPA, "$(M):HomeCounter.VAL")
+   field(CALC, "A+1")
+   info(autosaveFields, "VAL")
+   info(archive, "Monitor, 00:00:01, VAL")
+}
+
+# ///
+# /// At startup, read the motor record PREC and set the 
+# /// PREC fields in the above record.
+# ///
+field(dfanout, "$(M):SetPRECFields")
+{
+   field(DOL, "$(M).PREC")
+   field(PINI, "YES")
+   field(OUTA, "$(M):RBVChange.PREC PP")
+   field(OUTB, "$(M):RBVStore.PREC PP")
+   field(OUTC, "$(M):OffsetStore.PREC PP")
+   field(OUTD, "$(M):HomePostion.PREC PP")
+   field(OUTE, "$(M):HomeSpeed.PREC PP")
+   field(OUTF, "$(M):HomeBackoff.PREC PP")
+}
 
 
