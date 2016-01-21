@@ -88,10 +88,10 @@ record(seq, "$(M):HomePositionSet")
    field(DOL4, "$(M):HomePosition")
    field(LNK4, "$(M).DVAL PP")
    field(DLY5, "2")
-   field(DOL5, "$(M):UserOffsetStore")
+   field(DOL5, "$(M):OffsetStore")
    field(LNK5, "$(M).OFF PP")
    field(DLY6, "1")
-   field(DOL6, "1")
+   field(DOL6, "0")
    field(LNK6, "$(M).SET PP")
    field(DLY7, "0")
    field(DOL7, "0")
@@ -164,5 +164,7 @@ record(dfanout, "$(M):SetPRECFields")
    field(OUTE, "$(M):HomeSpeed.PREC PP")
    field(OUTF, "$(M):HomeBackoff.PREC PP")
 }
+
+
 
 
