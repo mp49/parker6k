@@ -45,7 +45,7 @@ record(mbbo, "$(M):HomeType")
 # ///
 # /// Home offset position
 # ///
-record(ao, "$(M):HomePostion")
+record(ao, "$(M):HomePosition")
 {
    field(PINI, "YES")
    field(VAL, "$(H_POS=0)")
@@ -151,7 +151,7 @@ record(calc, "$(M):HomeCounter")
 # /// At startup, read the motor record PREC and set the 
 # /// PREC fields in the above record.
 # ///
-field(dfanout, "$(M):SetPRECFields")
+record(dfanout, "$(M):SetPRECFields")
 {
    field(DOL, "$(M).PREC")
    field(PINI, "YES")
