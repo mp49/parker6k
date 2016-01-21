@@ -132,6 +132,7 @@ record(calcout, "$(M):RBVChangeCalc")
 }
 record(ao, "$(M):RBVChange")
 {
+   info(autosaveFields, "VAL")
    info(archive, "Monitor, 00:00:01, VAL")
 }
 
@@ -153,12 +154,13 @@ record(calc, "$(M):HomeCounter")
 # ///
 record(dfanout, "$(M):SetPRECFields")
 {
+   field(OMSL, "closed_loop")
    field(DOL, "$(M).PREC")
    field(PINI, "YES")
    field(OUTA, "$(M):RBVChange.PREC PP")
    field(OUTB, "$(M):RBVStore.PREC PP")
    field(OUTC, "$(M):OffsetStore.PREC PP")
-   field(OUTD, "$(M):HomePostion.PREC PP")
+   field(OUTD, "$(M):HomePosition.PREC PP")
    field(OUTE, "$(M):HomeSpeed.PREC PP")
    field(OUTF, "$(M):HomeBackoff.PREC PP")
 }
