@@ -8,11 +8,15 @@
 # H_TYPE - home type (See $(M):HomeType record for options)
 # H_POS - home position to set at end of home procedure
 # H_SPEED - home speed. This may be used when backing off a limit switch.
-# H_BACKOFF - home backoff. The distance to backoff a limit switch.
+# H_BACKOFF - home backoff. The distance to backoff a limit switch. The sign may be important.
 #
 # Matt Pearson & Gayle Green
 # June 2015
 #
+#######################################################
+
+#######################################################
+# Record to store homing information
 #######################################################
 
 # ///
@@ -61,6 +65,19 @@ record(ao, "$(M):HomeSpeed")
 }
 
 # ///
+# /// Record to hold the last normal VELO speed value
+# /// This reads $(M).VELO at startup, so if we happened
+# /// to restart the IOC having not set the speed back to
+# /// normal, this would be wrong.
+# ///
+record(ai, "$(M):NormalSpeed")
+{
+   field(PINI, "YES")
+   field(INP, "$(M).VELO")
+   info(archive, "Monitor, 00:00:01, VAL")
+}
+
+# ///
 # /// Home backoff distance (defaults to 0)
 # ///
 record(ao, "$(M):HomeBackoff")
@@ -68,6 +85,10 @@ record(ao, "$(M):HomeBackoff")
    field(PINI, "YES")
    field(VAL, "$(H_BACKOFF=0)")
 }
+
+#######################################################
+# Sequence to aid in setting the position to the home position
+#######################################################
 
 # ///
 # /// Seq to aid in setting the home offset position
@@ -136,7 +157,6 @@ record(ao, "$(M):RBVChange")
    info(archive, "Monitor, 00:00:01, VAL")
 }
 
-
 # ///
 # /// Number of times this axis has been homed
 # ///
@@ -148,11 +168,13 @@ record(calc, "$(M):HomeCounter")
    info(archive, "Monitor, 00:00:01, VAL")
 }
 
+#######################################################
+
 # ///
 # /// At startup, read the motor record PREC and set the 
 # /// PREC fields in the above record.
 # ///
-record(dfanout, "$(M):SetPRECFields")
+record(dfanout, "$(M):HomeSetPRECFields")
 {
    field(OMSL, "closed_loop")
    field(DOL, "$(M).PREC")
@@ -163,7 +185,295 @@ record(dfanout, "$(M):SetPRECFields")
    field(OUTD, "$(M):HomePosition.PREC PP")
    field(OUTE, "$(M):HomeSpeed.PREC PP")
    field(OUTF, "$(M):HomeBackoff.PREC PP")
+   field(OUTG, "$(M):NormalSpeed.PREC PP")
 }
+
+#######################################################
+# Sequence to home on high limit
+#######################################################
+
+# ///
+# /// Record to drive the home to the high limit.
+# /// If we don't see the high limit, we abort.
+# ///
+record(sseq, "$(M):HomeToHighLimit")
+{
+   field(WAIT1, "Wait")
+   field(WAIT2, "Wait")
+   field(WAIT3, "Wait")
+   field(WAIT4, "Wait")
+   field(WAIT5, "Wait")
+   field(WAIT6, "Wait")
+   field(WAIT7, "Wait")
+   field(WAIT8, "Wait")
+   field(WAIT9, "Wait")
+   field(DLY1, "0")
+   field(DOL1, "1")
+   field(LNK1, "$(M):HomeToHighLimit:Status.VAL PP")
+   field(DLY2, "0")
+   field(DOL2, "$(M).DHLM")
+   field(LNK2, "$(M).DVAL PP")
+   field(DLY3, "1")
+   field(DOL3, "1")
+   field(LNK3, "$(M):HomeToHighLimit:Check.PROC PP")
+   field(DLY4, "0")
+   field(DOL4, "1")
+   field(LNK4, "$(M):HomeToHighLimit:Backoff.PROC PP")
+   field(DLY5, "0")
+   field(DOL5, "$(M):HomeSpeed.VAL")
+   field(LNK5, "$(M).VELO PP")
+   field(DLY6, "1")
+   field(DOL6, "$(M).DHLM")
+   field(LNK6, "$(M).DVAL PP")
+   field(DLY7, "1")
+   field(DOL7, "1")
+   field(LNK7, "$(M):HomeToHighLimit:Check.PROC PP")
+   field(DLY8, "1")
+   field(DOL8, "1")
+   field(LNK8, "$(M):HomePositionSet.PROC PP")
+   field(DLY9, "0")
+   field(DOL9, "0")
+   field(LNK9, "$(M):HomeToHighLimit:Status.VAL PP")
+   field(FLNK, "$(M):HomeRestoreNormalSpeed")
+}
+
+# ///
+# /// Set the speed back to the normal speed at the end of the sequence.
+# ///
+record(dfanout, "$(M):HomeRestoreNormalSpeed")
+{
+   field(OMSL, "closed_loop")
+   field(DOL, "$(M):NormalSpeed.VAL")
+   field(OUTA, "$(M).VELO PP")
+}
+
+# ///
+# /// Move the motor a distance equal to the HomeBackoff value
+# ///
+record(calcout, "$(M):HomeToHighLimit:Backoff")
+{
+   field(INPA, "$(M):HomeBackoff")
+   field(INPB, "$(M).RBV")
+   field(CALC, "B-A")
+   field(OOPT, "Every Time")
+   field(DOPT, "Use CALC")
+   field(OUT, "$(M).VAL PP")
+}
+
+# ///
+# /// Abort the sseq if we are not on the high limit
+# ///
+record(calcout, "$(M):HomeToHighLimit:Check") {
+   field(INPA, "$(M).RHLS")
+   field(CALC, "(A!=1)?1:0")
+   field(OOPT, "When Non-zero")
+   field(DOPT, "Use CALC")
+   field(OUT, "$(M):HomeToHighLimit:Error PP")
+}
+
+# ///
+# /// High limit home status flag
+# ///
+record(mbbo, "$(M):HomeToHighLimit:Status") {
+   field(DTYP, "Soft Channel")
+   field(VAL,  "0")
+   field(PINI, "YES")
+   field(ZRST, "Idle")
+   field(ONST, "Running")
+   field(TWST, "Error")
+   field(THST, "Aborted")
+   field(ZRSV, "NO_ALARM")
+   field(ONSV, "NO_ALARM")
+   field(TWSV, "MAJOR")
+   field(THSV, "MINOR")
+   info(archive, "Monitor, 00:00:01, VAL")      
+}
+
+# ///
+# /// Set the status flag to Error
+# ///
+record(longout, "$(M):HomeToHighLimit:SetError") {
+   field(DTYP, "Soft Channel")
+   field(VAL, "2")
+   field(OUT, "$(M):HomeToHighLimit:Status.VAL PP")
+}
+
+# ///
+# /// Set the status flag to Aborted
+# ///
+record(longout, "$(M):HomeToHighLimit:SetAborted") {
+   field(DTYP, "Soft Channel")
+   field(VAL, "3")
+   field(OUT, "$(M):HomeToHighLimit:Status.VAL PP")
+}
+
+# ///
+# /// This is triggered by a manual abort.
+# /// It stops the sequence and sets the status.
+# ///
+record(dfanout, "$(M):HomeToHighLimit:Abort") {
+  field(DOL, "1")
+  field(OUTA, "$(M):HomeToHighLimit:SetAborted.PROC PP")
+  field(OUTB, "$(M):HomeToHighLimit.ABORT PP")
+  field(OUTC, "$(M).STOP PP")
+}
+
+# ///
+# /// Abort the sequence. This is not
+# /// a manual abort, and should be not run
+# /// during a move, so we don't need to stop the motor.
+# ///
+record(dfanout, "$(M):HomeToHighLimit:Error") {
+  field(DOL, "1")
+  field(OUTA, "$(M):HomeToHighLimit:SetError.PROC PP")
+  field(OUTB, "$(M):HomeToHighLimit.ABORT PP")
+}
+
+#######################################################
+# Sequence to home on low limit
+#######################################################
+
+# ///
+# /// Record to drive the home to the low limit.
+# /// If we don't see the low limit, we abort.
+# ///
+record(sseq, "$(M):HomeToLowLimit")
+{
+   field(WAIT1, "Wait")
+   field(WAIT2, "Wait")
+   field(WAIT3, "Wait")
+   field(WAIT4, "Wait")
+   field(WAIT5, "Wait")
+   field(WAIT6, "Wait")
+   field(WAIT7, "Wait")
+   field(WAIT8, "Wait")
+   field(WAIT9, "Wait")
+   field(DLY1, "0")
+   field(DOL1, "1")
+   field(LNK1, "$(M):HomeToLowLimit:Status.VAL PP")
+   field(DLY2, "0")
+   field(DOL2, "$(M).DHLM")
+   field(LNK2, "$(M).DVAL PP")
+   field(DLY3, "1")
+   field(DOL3, "1")
+   field(LNK3, "$(M):HomeToLowLimit:Check.PROC PP")
+   field(DLY4, "0")
+   field(DOL4, "1")
+   field(LNK4, "$(M):HomeToLowLimit:Backoff.PROC PP")
+   field(DLY5, "0")
+   field(DOL5, "$(M):HomeSpeed.VAL")
+   field(LNK5, "$(M).VELO PP")
+   field(DLY6, "1")
+   field(DOL6, "$(M).DHLM")
+   field(LNK6, "$(M).DVAL PP")
+   field(DLY7, "1")
+   field(DOL7, "1")
+   field(LNK7, "$(M):HomeToLowLimit:Check.PROC PP")
+   field(DLY8, "1")
+   field(DOL8, "1")
+   field(LNK8, "$(M):HomePositionSet.PROC PP")
+   field(DLY9, "0")
+   field(DOL9, "0")
+   field(LNK9, "$(M):HomeToLowLimit:Status.VAL PP")
+   field(FLNK, "$(M):HomeRestoreNormalSpeed")
+}
+
+# ///
+# /// Set the speed back to the normal speed at the end of the sequence.
+# ///
+record(dfanout, "$(M):HomeRestoreNormalSpeed")
+{
+   field(OMSL, "closed_loop")
+   field(DOL, "$(M):NormalSpeed.VAL")
+   field(OUTA, "$(M).VELO PP")
+}
+
+# ///
+# /// Move the motor a distance equal to the HomeBackoff value
+# ///
+record(calcout, "$(M):HomeToLowLimit:Backoff")
+{
+   field(INPA, "$(M):HomeBackoff")
+   field(INPB, "$(M).RBV")
+   field(CALC, "B-A")
+   field(OOPT, "Every Time")
+   field(DOPT, "Use CALC")
+   field(OUT, "$(M).VAL PP")
+}
+
+# ///
+# /// Abort the sseq if we are not on the low limit
+# ///
+record(calcout, "$(M):HomeToLowLimit:Check") {
+   field(INPA, "$(M).RHLS")
+   field(CALC, "(A!=1)?1:0")
+   field(OOPT, "When Non-zero")
+   field(DOPT, "Use CALC")
+   field(OUT, "$(M):HomeToLowLimit:Error PP")
+}
+
+# ///
+# /// Low limit home status flag
+# ///
+record(mbbo, "$(M):HomeToLowLimit:Status") {
+   field(DTYP, "Soft Channel")
+   field(VAL,  "0")
+   field(PINI, "YES")
+   field(ZRST, "Idle")
+   field(ONST, "Running")
+   field(TWST, "Error")
+   field(THST, "Aborted")
+   field(ZRSV, "NO_ALARM")
+   field(ONSV, "NO_ALARM")
+   field(TWSV, "MAJOR")
+   field(THSV, "MINOR")
+   info(archive, "Monitor, 00:00:01, VAL")      
+}
+
+# ///
+# /// Set the status flag to Error
+# ///
+record(longout, "$(M):HomeToLowLimit:SetError") {
+   field(DTYP, "Soft Channel")
+   field(VAL, "2")
+   field(OUT, "$(M):HomeToLowLimit:Status.VAL PP")
+}
+
+# ///
+# /// Set the status flag to Aborted
+# ///
+record(longout, "$(M):HomeToLowLimit:SetAborted") {
+   field(DTYP, "Soft Channel")
+   field(VAL, "3")
+   field(OUT, "$(M):HomeToLowLimit:Status.VAL PP")
+}
+
+# ///
+# /// This is triggered by a manual abort.
+# /// It stops the sequence and sets the status.
+# ///
+record(dfanout, "$(M):HomeToLowLimit:Abort") {
+  field(DOL, "1")
+  field(OUTA, "$(M):HomeToLowLimit:SetAborted.PROC PP")
+  field(OUTB, "$(M):HomeToLowLimit.ABORT PP")
+  field(OUTC, "$(M).STOP PP")
+}
+
+# ///
+# /// Abort the sequence. This is not
+# /// a manual abort, and should be not run
+# /// during a move, so we don't need to stop the motor.
+# ///
+record(dfanout, "$(M):HomeToLowLimit:Error") {
+  field(DOL, "1")
+  field(OUTA, "$(M):HomeToLowLimit:SetError.PROC PP")
+  field(OUTB, "$(M):HomeToLowLimit.ABORT PP")
+}
+
+
+
+
+
 
 
 
