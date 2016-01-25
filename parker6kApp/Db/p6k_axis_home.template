@@ -78,6 +78,16 @@ record(ai, "$(M):NormalSpeed")
 }
 
 # ///
+# /// Set the speed back to the normal speed at the end of a sequence.
+# ///
+record(dfanout, "$(M):RestoreNormalSpeed")
+{
+   field(OMSL, "closed_loop")
+   field(DOL, "$(M):NormalSpeed.VAL")
+   field(OUTA, "$(M).VELO PP")
+}
+
+# ///
 # /// Home backoff distance (defaults to 0)
 # ///
 record(ao, "$(M):HomeBackoff")
@@ -124,7 +134,7 @@ record(seq, "$(M):HomePositionSet")
 }
 
 # ///
-# /// Stored OFF field. This is used by $(M):HomeOffsetSet
+# /// Stored OFF field. This is used by $(M):HomePositionSet
 # /// to store the OFF during the set position procedure. It is set back 
 # /// to zero at the end of the set position sequence.
 # ///
@@ -158,7 +168,7 @@ record(ao, "$(M):RBVChange")
 }
 
 # ///
-# /// Number of times this axis has been homed
+# /// Number of times this axis has had the position set
 # ///
 record(calc, "$(M):HomeCounter") 
 {
@@ -193,8 +203,9 @@ record(dfanout, "$(M):HomeSetPRECFields")
 #######################################################
 
 # ///
-# /// Record to drive the home to the high limit.
+# /// Record to home to the high limit.
 # /// If we don't see the high limit, we abort.
+# /// This relies on the software limit being outside the limit switch.
 # ///
 record(sseq, "$(M):HomeToHighLimit")
 {
@@ -234,17 +245,7 @@ record(sseq, "$(M):HomeToHighLimit")
    field(DLY9, "0")
    field(DOL9, "0")
    field(LNK9, "$(M):HomeToHighLimit:Status.VAL PP")
-   field(FLNK, "$(M):HomeRestoreNormalSpeed")
-}
-
-# ///
-# /// Set the speed back to the normal speed at the end of the sequence.
-# ///
-record(dfanout, "$(M):HomeRestoreNormalSpeed")
-{
-   field(OMSL, "closed_loop")
-   field(DOL, "$(M):NormalSpeed.VAL")
-   field(OUTA, "$(M).VELO PP")
+   field(FLNK, "$(M):RestoreNormalSpeed")
 }
 
 # ///
@@ -299,23 +300,14 @@ record(longout, "$(M):HomeToHighLimit:SetError") {
 }
 
 # ///
-# /// Set the status flag to Aborted
+# /// Set the status flag to Aborted, if we are running the seq
 # ///
-record(longout, "$(M):HomeToHighLimit:SetAborted") {
-   field(DTYP, "Soft Channel")
-   field(VAL, "3")
+record(calcout, "$(M):HomeToHighLimit:SetAborted") {
+   field(INPA, "$(M):HomeToHighLimit:Status")
+   field(CALC, "A=1?3:0")
+   field(OOPT, "When Non-zero")
+   field(DOPT, "Use CALC")
    field(OUT, "$(M):HomeToHighLimit:Status.VAL PP")
-}
-
-# ///
-# /// This is triggered by a manual abort.
-# /// It stops the sequence and sets the status.
-# ///
-record(dfanout, "$(M):HomeToHighLimit:Abort") {
-  field(DOL, "1")
-  field(OUTA, "$(M):HomeToHighLimit:SetAborted.PROC PP")
-  field(OUTB, "$(M):HomeToHighLimit.ABORT PP")
-  field(OUTC, "$(M).STOP PP")
 }
 
 # ///
@@ -334,8 +326,9 @@ record(dfanout, "$(M):HomeToHighLimit:Error") {
 #######################################################
 
 # ///
-# /// Record to drive the home to the low limit.
+# /// Record to home to the low limit.
 # /// If we don't see the low limit, we abort.
+# /// This relies on the software low limit being outside the limit switch. 
 # ///
 record(sseq, "$(M):HomeToLowLimit")
 {
@@ -375,17 +368,7 @@ record(sseq, "$(M):HomeToLowLimit")
    field(DLY9, "0")
    field(DOL9, "0")
    field(LNK9, "$(M):HomeToLowLimit:Status.VAL PP")
-   field(FLNK, "$(M):HomeRestoreNormalSpeed")
-}
-
-# ///
-# /// Set the speed back to the normal speed at the end of the sequence.
-# ///
-record(dfanout, "$(M):HomeRestoreNormalSpeed")
-{
-   field(OMSL, "closed_loop")
-   field(DOL, "$(M):NormalSpeed.VAL")
-   field(OUTA, "$(M).VELO PP")
+   field(FLNK, "$(M):RestoreNormalSpeed")
 }
 
 # ///
@@ -395,7 +378,7 @@ record(calcout, "$(M):HomeToLowLimit:Backoff")
 {
    field(INPA, "$(M):HomeBackoff")
    field(INPB, "$(M).RBV")
-   field(CALC, "B-A")
+   field(CALC, "B+A")
    field(OOPT, "Every Time")
    field(DOPT, "Use CALC")
    field(OUT, "$(M).VAL PP")
@@ -405,7 +388,7 @@ record(calcout, "$(M):HomeToLowLimit:Backoff")
 # /// Abort the sseq if we are not on the low limit
 # ///
 record(calcout, "$(M):HomeToLowLimit:Check") {
-   field(INPA, "$(M).RHLS")
+   field(INPA, "$(M).RLLS")
    field(CALC, "(A!=1)?1:0")
    field(OOPT, "When Non-zero")
    field(DOPT, "Use CALC")
@@ -440,23 +423,14 @@ record(longout, "$(M):HomeToLowLimit:SetError") {
 }
 
 # ///
-# /// Set the status flag to Aborted
+# /// Set the status flag to Aborted, if we are running the seq
 # ///
-record(longout, "$(M):HomeToLowLimit:SetAborted") {
-   field(DTYP, "Soft Channel")
-   field(VAL, "3")
+record(calcout, "$(M):HomeToLowLimit:SetAborted") {
+   field(INPA, "$(M):HomeToLowLimit:Status")
+   field(CALC, "A=1?3:0")
+   field(OOPT, "When Non-zero")
+   field(DOPT, "Use CALC")
    field(OUT, "$(M):HomeToLowLimit:Status.VAL PP")
-}
-
-# ///
-# /// This is triggered by a manual abort.
-# /// It stops the sequence and sets the status.
-# ///
-record(dfanout, "$(M):HomeToLowLimit:Abort") {
-  field(DOL, "1")
-  field(OUTA, "$(M):HomeToLowLimit:SetAborted.PROC PP")
-  field(OUTB, "$(M):HomeToLowLimit.ABORT PP")
-  field(OUTC, "$(M).STOP PP")
 }
 
 # ///
@@ -470,11 +444,22 @@ record(dfanout, "$(M):HomeToLowLimit:Error") {
   field(OUTB, "$(M):HomeToLowLimit.ABORT PP")
 }
 
+###############################################################
+# Abort either of the limit switch home sequences.
+
+# ///
+# /// This is triggered by a manual abort.
+# /// It stops the sequences and sets the status.
+# ///
+record(dfanout, "$(M):HomeToLimit:Abort") {
+  field(DOL, "1")
+  field(OUTA, "$(M):HomeToLowLimit:SetAborted.PROC PP")
+  field(OUTB, "$(M):HomeToHighLimit:SetAborted.PROC PP")
+  field(OUTC, "$(M):HomeToLowLimit.ABORT PP")
+  field(OUTD, "$(M):HomeToHighLimit.ABORT PP")
+  field(OUTE, "$(M).STOP PP")
+}
 
 
-
-
-
-
-
+###############################################################
 
