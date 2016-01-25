@@ -9,6 +9,7 @@
 # H_POS - home position to set at end of home procedure
 # H_SPEED - home speed. This may be used when backing off a limit switch.
 # H_BACKOFF - home backoff. The distance to backoff a limit switch. The sign may be important.
+# H_EGU - units string (default=mm)
 #
 # Matt Pearson & Gayle Green
 # June 2015
@@ -53,6 +54,7 @@ record(ao, "$(M):HomePosition")
 {
    field(PINI, "YES")
    field(VAL, "$(H_POS=0)")
+   field(EGU, "$(H_EGU=mm)")
 }
 
 # ///
@@ -94,6 +96,7 @@ record(ao, "$(M):HomeBackoff")
 {
    field(PINI, "YES")
    field(VAL, "$(H_BACKOFF=1)")
+   field(EGU, "$(H_EGU=mm)")
 }
 
 #######################################################
@@ -165,6 +168,7 @@ record(ao, "$(M):RBVChange")
 {
    info(autosaveFields, "VAL")
    info(archive, "Monitor, 00:00:01, VAL")
+   field(EGU, "$(H_EGU=mm)")
 }
 
 # ///
