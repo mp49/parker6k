@@ -23,8 +23,9 @@
 # ///
 # /// Home Type
 # /// None - No Action (default)
-# /// 6K HOME Neg - Execute 6K HOM1 command (negative direction)
-# /// 6K HOME Pos - Execute 6K HOM0 command (positive direction)
+# /// 6K Home Switch - Execute 6K HOM1 or 6K HOM0 command (user decides direction)
+# /// 6K Home Z Chan - Execute 6K HOM0 command (direction will depend on 
+# ///                     how 6K is set up, but user may have to drive to right side of reference mark)
 # /// Neg Limit - Home on negative limit
 # /// Pos Limit - Home on positive limit
 # /// Set As Home - Use current position as home (replace with home offset)
@@ -40,8 +41,8 @@ record(mbbo, "$(M):HomeType")
    field(FRVL, "4")
    field(FVVL, "5")
    field(ZRST, "None")
-   field(ONST, "6K HOME Neg")
-   field(TWST, "6K HOME Pos")
+   field(ONST, "6K Home Switch")
+   field(TWST, "6K Home Z Chan")
    field(THST, "Neg Limit")
    field(FRST, "Pos Limit")
    field(FVST, "Set As Home")
@@ -81,6 +82,7 @@ record(ai, "$(M):NormalSpeed")
 
 # ///
 # /// Set the speed back to the normal speed at the end of a sequence.
+# /// This is only used for limit switch homes.
 # ///
 record(dfanout, "$(M):RestoreNormalSpeed")
 {
@@ -91,12 +93,31 @@ record(dfanout, "$(M):RestoreNormalSpeed")
 
 # ///
 # /// Home backoff distance (defaults to 0)
+# /// This is only used for limit switch homes.
 # ///
 record(ao, "$(M):HomeBackoff")
 {
    field(PINI, "YES")
    field(VAL, "$(H_BACKOFF=1)")
    field(EGU, "$(H_EGU=mm)")
+}
+
+# ///
+# /// Extract the home bit into a seperate record whenever MSTA changes 
+# ///
+record(calcout, "$(M):HomeBitCalc")
+{
+   field(PINI, "YES")
+   field(INPA, "$(M).MSTA CP MS")
+   field(CALC, "(A>>14)&0x1")
+   field(OOPT, "Every Time")
+   field(DOPT, "Use CALC")
+   field(OUT, "$(M):HomeBit PP")
+}
+record(bo, "$(M):HomeBit")
+{
+   field(ZNAM, "Not Homed")
+   field(ONAM, "Homed")
 }
 
 #######################################################
@@ -178,7 +199,6 @@ record(calc, "$(M):HomeCounter")
 {
    field(INPA, "$(M):HomeCounter.VAL")
    field(CALC, "A+1")
-   field(PINI, "YES")
    info(autosaveFields, "VAL")
    info(archive, "Monitor, 00:00:01, VAL")
 }
