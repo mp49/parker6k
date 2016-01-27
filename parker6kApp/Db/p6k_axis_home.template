@@ -488,3 +488,136 @@ record(dfanout, "$(M):HomeToLimit:Abort") {
 
 ###############################################################
 
+###############################################################
+# Sequence to execute the 6K home routine and set the home position
+###############################################################
+
+# ///
+# /// Record to run the 6K home routine
+# /// If we don't see the homed bit on, we abort.
+# ///
+record(sseq, "$(M):HomeTo6KHome")
+{
+   field(WAIT1, "Wait")
+   field(WAIT2, "Wait")
+   field(WAIT3, "Wait")
+   field(WAIT4, "Wait")
+   field(WAIT5, "Wait")
+   field(DLY1, "0")
+   field(DOL1, "1")
+   field(LNK1, "$(M):HomeTo6KHome:Status.VAL CA")
+   field(DLY2, "0")
+   field(DOL2, "1")
+   field(LNK2, "$(M):HomeTo6KHome:Run.PROC CA")
+   field(DLY3, "2")
+   field(DOL3, "1")
+   field(LNK3, "$(M):HomeTo6KHome:Check.PROC CA")
+   field(DLY4, "1")
+   field(DOL4, "1")
+   field(LNK4, "$(M):HomePositionSet.PROC CA")
+   field(DLY5, "0")
+   field(DOL5, "0")
+   field(LNK5, "$(M):HomeTo6KHome:Status.VAL CA")
+}
+
+# ///
+# /// 6K home status flag
+# ///
+record(mbbo, "$(M):HomeTo6KHome:Status") {
+   field(DTYP, "Soft Channel")
+   field(VAL,  "0")
+   field(PINI, "YES")
+   field(ZRST, "Idle")
+   field(ONST, "Running")
+   field(TWST, "Error")
+   field(THST, "Aborted")
+   field(ZRSV, "NO_ALARM")
+   field(ONSV, "NO_ALARM")
+   field(TWSV, "MAJOR")
+   field(THSV, "MINOR")
+   info(archive, "Monitor, 00:00:01, VAL")      
+}
+
+# ///
+# /// Set the status flag to Error
+# ///
+record(longout, "$(M):HomeTo6KHome:SetError") {
+   field(DTYP, "Soft Channel")
+   field(VAL, "2")
+   field(OUT, "$(M):HomeTo6KHome:Status.VAL PP")
+}
+
+# ///
+# /// Set the status flag to Aborted, if we are running the seq
+# ///
+record(calcout, "$(M):HomeTo6KHome:SetAborted") {
+   field(INPA, "$(M):HomeTo6KHome:Status")
+   field(CALC, "A=1?3:0")
+   field(OOPT, "When Non-zero")
+   field(DOPT, "Use CALC")
+   field(OUT, "$(M):HomeTo6KHome:Status.VAL PP")
+}
+
+# ///
+# /// Abort the sequence. This is not
+# /// a manual abort, and should be not run
+# /// during a move, so we don't need to stop the motor.
+# ///
+record(dfanout, "$(M):HomeTo6KHome:Error") {
+  field(DOL, "1")
+  field(OUTA, "$(M):HomeTo6KHome:SetError.PROC PP")
+  field(OUTB, "$(M):HomeTo6KHome.ABORT PP")
+}
+
+# ///
+# /// This is triggered by a manual abort.
+# /// It stops the sequence and sets the status.
+# ///
+record(dfanout, "$(M):HomeTo6KHome:Abort") {
+  field(DOL, "1")
+  field(OUTA, "$(M):HomeTo6KHome:SetAborted.PROC PP")
+  field(OUTB, "$(M):HomeTo6KHome.ABORT PP")
+  field(OUTC, "$(M).STOP PP")
+}
+
+# ///
+# /// Abort the sseq if we did not see a successful 6K home
+# ///
+record(calcout, "$(M):HomeTo6KHome:Check") {
+   field(INPA, "$(M):HomeBit")
+   field(CALC, "(A!=1)?1:0")
+   field(OOPT, "When Non-zero")
+   field(DOPT, "Use CALC")
+   field(OUT, "$(M):HomeTo6KHome:Error PP")
+}
+
+# ///
+# /// This selects which direction to go (only relevant for the home switch method)
+# ///
+record(bo, "$(M):HomeTo6KHome:Direction") {
+  field(PINI, "YES")
+  field(ZNAM, "Positive")
+  field(ONAM, "Negative")
+  info(autosaveFields, "VAL")
+  info(archive, "Monitor, 00:00:01, VAL")
+}
+
+# ///
+# /// Run the 6K home sequence (either the HOM0 or HOM1)
+# ///
+record(calcout, "$(M):HomeTo6KHome:Run") {
+   field(INPA, "$(M):HomeTo6KHome:Direction")
+   field(CALC, "A=0")
+   field(OOPT, "When Non-zero")
+   field(DOPT, "Use CALC")
+   field(OUT, "$(M).HOMF PP")
+   field(FLNK, "$(M):HomeTo6KHome:Run2")
+}
+record(calcout, "$(M):HomeTo6KHome:Run2") {
+   field(INPA, "$(M):HomeTo6KHome:Direction")
+   field(CALC, "A=1")
+   field(OOPT, "When Non-zero")
+   field(DOPT, "Use CALC")
+   field(OUT, "$(M).HOMR PP")
+}
+
