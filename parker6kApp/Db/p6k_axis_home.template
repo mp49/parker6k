@@ -224,6 +224,30 @@ record(dfanout, "$(M):HomeSetPRECFields")
 }
 
 #######################################################
+
+# ///
+# /// Figure out if the software limits are inverted for
+# /// this axis (ie. if we have negative MRES)
+# ///
+record(calcout, "$(M):HomeDirReverseCalc")
+{
+   field(PINI, "YES")
+   field(INPA, "$(M).MRES")
+   field(CALC, "A<0")
+   field(OOPT, "Every Time")
+   field(DOPT, "Use CALC")
+   field(OUT, "$(M):HomeDirReverse PP")
+}
+record(bo, "$(M):HomeDirReverse")
+{
+   field(ZNAM, "Not Reversed")
+   field(ONAM, "Reversed")
+}
+
+
+#######################################################
+
+#######################################################
 # Sequence to home on high limit
 #######################################################
 
@@ -247,8 +271,8 @@ record(sseq, "$(M):HomeToHighLimit")
    field(DOL1, "1")
    field(LNK1, "$(M):HomeToHighLimit:Status.VAL CA")
    field(DLY2, "0")
-   field(DOL2, "$(M).DHLM")
-   field(LNK2, "$(M).DVAL CA")
+   field(DOL2, "1")
+   field(LNK2, "$(M):HomeToHighLimit:Move.PROC CA")
    field(DLY3, "1")
    field(DOL3, "1")
    field(LNK3, "$(M):HomeToHighLimit:Check.PROC CA")
@@ -259,8 +283,8 @@ record(sseq, "$(M):HomeToHighLimit")
    field(DOL5, "$(M):HomeSpeed.VAL")
    field(LNK5, "$(M).VELO CA")
    field(DLY6, "1")
-   field(DOL6, "$(M).DHLM")
-   field(LNK6, "$(M).DVAL CA")
+   field(DOL6, "1")
+   field(LNK6, "$(M):HomeToHighLimit:Move.PROC CA")
    field(DLY7, "1")
    field(DOL7, "1")
    field(LNK7, "$(M):HomeToHighLimit:Check.PROC CA")
@@ -274,13 +298,29 @@ record(sseq, "$(M):HomeToHighLimit")
 }
 
 # ///
+# /// Move to the high limit. This calculation also figures out if we
+# /// need to use the reverse limits due to a negative MRES
+# ///
+record(calcout, "$(M):HomeToHighLimit:Move")
+{
+   field(INPA, "$(M):HomeDirReverse")
+   field(INPB, "$(M).DHLM")
+   field(INPC, "$(M).DLLM")
+   field(CALC, "A=1?C:B")
+   field(OOPT, "Every Time")
+   field(DOPT, "Use CALC")
+   field(OUT, "$(M).DVAL PP")
+}
+
+# ///
 # /// Move the motor a distance equal to the HomeBackoff value
 # ///
 record(calcout, "$(M):HomeToHighLimit:Backoff")
 {
    field(INPA, "$(M):HomeBackoff")
    field(INPB, "$(M).RBV")
-   field(CALC, "B-A")
+   field(INPC, "$(M):HomeDirReverse")
+   field(CALC, "(C=1)?(B+A):(B-A)")
    field(OOPT, "Every Time")
    field(DOPT, "Use CALC")
    field(OUT, "$(M).VAL PP")
@@ -397,13 +437,29 @@ record(sseq, "$(M):HomeToLowLimit")
 }
 
 # ///
+# /// Move to the low limit. This calculation also figures out if we
+# /// need to use the reverse limits due to a negative MRES
+# ///
+record(calcout, "$(M):HomeToLowLimit:Move")
+{
+   field(INPA, "$(M):HomeDirReverse")
+   field(INPB, "$(M).DHLM")
+   field(INPC, "$(M).DLLM")
+   field(CALC, "A=1?B:C")
+   field(OOPT, "Every Time")
+   field(DOPT, "Use CALC")
+   field(OUT, "$(M).DVAL PP")
+}
+
+# ///
 # /// Move the motor a distance equal to the HomeBackoff value
 # ///
 record(calcout, "$(M):HomeToLowLimit:Backoff")
 {
    field(INPA, "$(M):HomeBackoff")
    field(INPB, "$(M).RBV")
-   field(CALC, "B+A")
+   field(INPC, "$(M):HomeDirReverse")   
+   field(CALC, "(C=1)?(B-A):(B+A)")
    field(OOPT, "Every Time")
    field(DOPT, "Use CALC")
    field(OUT, "$(M).VAL PP")
