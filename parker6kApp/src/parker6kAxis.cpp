@@ -101,7 +101,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   doneTimeSecs_ = 0.0;
   movingLastPoll_ = false;
   delayDoneMove_ = false;
-  printNextError_ = false;
+  printNextError_ = true;
   printErrors_ = true;
   commandError_ = false;
   axisError_ = false;
@@ -1014,6 +1014,7 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     }
     memset(command, 0, sizeof(command));
 
+    uint32_t problem = 0;
     if (!stat) {
       if (printErrors_) {
 	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
@@ -1133,7 +1134,6 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
 	setStringParam(pC_->P6K_A_Error_, "ERROR: Stall Detected");
       }
       
-      uint32_t problem = 0;
       if (commandError_) {
 	problem = 1;
       }
@@ -1198,16 +1198,19 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     
     //Clear error print flag for this axis if problem has been removed.
     if (stat) {
-      if (!printErrors_) {
+      if (!problem && !printErrors_) {
 	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
 		  "%s Problem cleared on controller %s, axis %d\n", 
 		  functionName, pC_->portName, axisNo_);
+	printNextError_ = true;
       }
-      printNextError_ = true;
+      //Always return asynSuccess unless we failed to read from the controller
+      //or failed to read or write driver params.
       return asynSuccess;
     }
     
     return asynError;
+
 }
 
 
