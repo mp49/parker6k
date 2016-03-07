@@ -1110,15 +1110,21 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       }
       
       //Set limit error message for users
-      if ((stringVal[P6K_TAS_POSLIM_] == pC_->P6K_ON_) || 
-	  (stringVal[P6K_TAS_POSLIMSOFT_] == pC_->P6K_ON_)) {
+      if (stringVal[P6K_TAS_POSLIM_] == pC_->P6K_ON_) {
 	axisError_ = true;
-	setStringParam(pC_->P6K_A_Error_, "ERROR: High Limit");
+	setStringParam(pC_->P6K_A_Error_, "ERROR: Hardware High Limit");
       }
-      if ((stringVal[P6K_TAS_NEGLIM_] == pC_->P6K_ON_) || 
-	  (stringVal[P6K_TAS_NEGLIMSOFT_] == pC_->P6K_ON_)) {
+      if (stringVal[P6K_TAS_NEGLIM_] == pC_->P6K_ON_) {
 	axisError_ = true;
-	setStringParam(pC_->P6K_A_Error_, "ERROR: Low Limit");
+	setStringParam(pC_->P6K_A_Error_, "ERROR: Hardware Low Limit");
+      }
+      if (stringVal[P6K_TAS_POSLIMSOFT_] == pC_->P6K_ON_) {
+	axisError_ = true;
+	setStringParam(pC_->P6K_A_Error_, "ERROR: Software High Limit");
+      }
+      if (stringVal[P6K_TAS_NEGLIMSOFT_] == pC_->P6K_ON_) {
+	axisError_ = true;
+	setStringParam(pC_->P6K_A_Error_, "ERROR: Software Low Limit");
       }
 
       if (driveType_ == P6K_SERVO_) {
