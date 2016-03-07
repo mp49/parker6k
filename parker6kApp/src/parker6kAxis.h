@@ -41,7 +41,7 @@ class p6kAxis : public asynMotorAxis
   asynStatus setEncoderRatio(double ratio);
   asynStatus setHighLimit(double highLimit);
   asynStatus setLowLimit(double lowLimit);
-  
+  asynStatus disableSoftwareLimits(bool disable);
   
   private:
   p6kController *pC_;

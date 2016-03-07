@@ -149,6 +149,7 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_A_MaxDigitsString,        asynParamInt32, &P6K_A_MaxDigits_);
   createParam(P6K_A_LimitDriveEnableString, asynParamInt32, &P6K_A_LimitDriveEnable_);
   createParam(P6K_A_SendPositionOnlyString, asynParamInt32, &P6K_A_SendPositionOnly_);
+  createParam(P6K_A_LSEnableString,         asynParamInt32, &P6K_A_LS_Enable_);
   createParam(P6K_A_LSString,               asynParamInt32, &P6K_A_LS_);
   createParam(P6K_A_LHString,               asynParamInt32, &P6K_A_LH_);
   createParam(P6K_A_CommandString,          asynParamOctet, &P6K_A_Command_);
@@ -581,6 +582,12 @@ asynStatus p6kController::writeInt32(asynUser *pasynUser, epicsInt32 value)
 		"%s: ERROR: forcing drive enable to be >=0. Axis %d\n", 
 		functionName, pAxis->axisNo_);
       value = 0;
+    }
+  } else if (function == P6K_A_LS_Enable_) {
+    if (value !=0 ) {
+      status = (pAxis->disableSoftwareLimits(false) == asynSuccess) && status;
+    } else {
+      status = (pAxis->disableSoftwareLimits(true) == asynSuccess) && status;
     }
   } else if (function == P6K_C_OUT_Bit_) {
     if ((value < 1) || (value > 8)) {
