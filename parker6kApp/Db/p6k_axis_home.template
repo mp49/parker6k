@@ -56,6 +56,8 @@ record(ao, "$(M):HomePosition")
    field(PINI, "YES")
    field(VAL, "$(H_POS=0)")
    field(EGU, "$(H_EGU=mm)")
+   field(ASG, "BEAMLINE")
+   info(archive, "Monitor, 00:00:01, VAL")   
 }
 
 # ///
