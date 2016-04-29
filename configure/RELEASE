@@ -21,11 +21,10 @@
 
 TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
 
-SUPPORT=/home/controls/epics
-ASYN=           $(SUPPORT)/asyn/master
-MOTOR=		$(SUPPORT)/motor/master
+ASYN=/home/controls/prod/epics/asyn/rel4-26_20150804
+MOTOR=/home/controls/prod/epics/motor/rel6-8-1-SNS6_20160307
 
-EPICS_BASE=/home/controls/epics/base/master
+EPICS_BASE=/home/controls/prod/epics/base/rel3.14.12.4_20140619
 
 # Set RULES here if you want to take build rules from somewhere
 # other than EPICS_BASE:
