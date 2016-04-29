@@ -543,6 +543,12 @@ int32_t p6kAxis::getScaleFactor(void)
  * Deal with automatic drive enable. If this is enabled then
  * the drive will be powered on. If a P6K_A_AutoDriveEnableDelay_
  * is set then this function will block until a timer expires.
+ *
+ * We should always call this in the move functions to make sure the
+ * drive is powered on before sending a move, even if we are making use
+ * use of the asynMotorController auto enable instead. This function 
+ * will prevent sending a move command if the drive is not on, which can 
+ * cause the next move to fail.
  */
 asynStatus p6kAxis::autoDriveEnable(void)
 {
