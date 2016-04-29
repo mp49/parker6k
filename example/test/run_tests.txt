@@ -1,7 +1,7 @@
-/home/controls/epics/motor/proj_delay/examples/tests/moves.py
-/home/controls/epics/motor/proj_delay/examples/tests/moves_delay.py
-/home/controls/epics/motor/proj_delay/examples/tests/moves_small.py
-/home/controls/epics/motor/proj_delay/examples/tests/set_position.py
-/home/controls/epics/motor/proj_delay/examples/tests/auto_power.py
+/home/controls/epics/motor/master/examples/tests/moves.py
+/home/controls/epics/motor/master/examples/tests/moves_delay.py
+/home/controls/epics/motor/master/examples/tests/moves_small.py
+/home/controls/epics/motor/master/examples/tests/set_position.py
+/home/controls/epics/motor/master/examples/tests/auto_power.py
 moves_deferred.py
 post_move_delay.py
