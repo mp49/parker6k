@@ -207,6 +207,32 @@ record(bi, "$(M):LSEnable_RBV")
    field(SCAN, "I/O Intr")
 }
 
+# ///
+# /// In rare cases the controller can either lose or ignore the drive
+# /// enable command. Despite our best efforts for turning on the drive,
+# /// the controller rejects the move command with a DRIVE_SHUTDOWN error.
+# /// Enabling this option will allow the drive to detect this error and 
+# /// retry sending the drive enable command.
+# ///
+record(bo, "$(M):DriveRetry")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_DRIVE_RETRY")
+   field(ZNAM, "Disable")
+   field(ONAM, "Enable")
+   field(VAL,  "$(DRIVE_RETRY=0)")
+   info(autosaveFields, "VAL")
+}
+record(bi, "$(M):DriveRetry_RBV")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_DRIVE_RETRY")
+   field(ZNAM, "Disable")
+   field(ONAM, "Enable")
+   field(SCAN, "I/O Intr")
+}
+
 
 ############################################################################
 # Time since last move

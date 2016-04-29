@@ -59,6 +59,8 @@ const epicsUInt32 p6kAxis::P6K_SERVO_       = 1;
 const epicsUInt32 p6kAxis::P6K_LIM_DISABLE_ = 0;
 const epicsUInt32 p6kAxis::P6K_LIM_ENABLE_  = 3;
 
+const char * p6kAxis::P6K_DRIVE_SHUTDOWN_STR_ = "DRIVE SHUTDOWN";
+
 /**
  * Asyn shutdown function
  */
@@ -498,6 +500,29 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
         
   status = pC_->lowLevelWriteRead(command, response);
 
+  //Detect a "DRIVE SHUTDOWN" error. Here we attempt to retry the drive enable.
+  if (strstr(response, P6K_DRIVE_SHUTDOWN_STR_) != NULL) {
+    int32_t retryDriveEnable = 0;
+    pC_->getIntegerParam(axisNo_, pC_->P6K_A_DriveRetry_, &retryDriveEnable);
+    if (retryDriveEnable == 1) {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+                "%s We detected a DRIVE SHUTDOWN on axis %d. Waiting 10s...\n", functionName, axisNo_);
+      epicsThreadSleep(10);
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+                "%s Sending DRIVE1 again on axis %d...\n", functionName, axisNo_);
+      sprintf(command, "%d%s1",  axisNo_, P6K_CMD_DRIVE);
+      status = pC_->lowLevelWriteRead(command, response); 
+      if (status == asynSuccess) {
+        setIntegerParam(pC_->motorStatusPowerOn_, 1);
+        asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+                  "%s Successfully sent DRIVE1 on axis %d. Now sending %dGO...\n", functionName, axisNo_, axisNo_);
+        memset(command, 0, sizeof(command));
+        epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_GO);
+        status = pC_->lowLevelWriteRead(command, response);
+      }
+    }
+  }
+  
   //Check the status of the GO command so we are notified of failed moves.
   if (status != asynSuccess) {
     setStringParam(pC_->P6K_A_MoveError_, response);
@@ -579,7 +604,7 @@ asynStatus p6kAxis::autoDriveEnable(void)
 		"%s ERROR: Not sending move because drive is off. Axis: %d\n", functionName, axisNo_);
       setStringParam(pC_->P6K_A_MoveError_, "ERROR: Drive was off when attempting last move.");
       return asynError;
-    }
+      }
   }
 
   int32_t drive_enable_delay = 0;
