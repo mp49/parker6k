@@ -822,37 +822,22 @@ asynStatus p6kAxis::setHighLimit(double highLimit)
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
-  int32_t ls_enable = 0;
-  pC_->getIntegerParam(axisNo_, pC_->P6K_A_LS_Enable_, &ls_enable);
-
-  if (ls_enable == 1) {
-
-    if(highLimit != std::numeric_limits<double>::infinity()) {
-      epicsInt32 limit = static_cast<epicsInt32>(floor(highLimit + 0.5));
-      
-      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW,
-		"%s: Setting high limit on controller %s, axis %d to %d\n",
-		functionName, pC_->portName, axisNo_, limit);
-      
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
-      stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-      memset(command, 0, sizeof(command));
-      
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSPOS, limit);
-      stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-      
-      if (!stat) {
-	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
-		  "%s: ERROR: Failed to set high limit on controller %s, axis %d\n",
-		  functionName, pC_->portName, axisNo_);
-	status = asynError;
-      }
-    }
+  if(highLimit != std::numeric_limits<double>::infinity()) {
+    epicsInt32 limit = static_cast<epicsInt32>(floor(highLimit + 0.5));
     
-  } else {
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW,
-		"%s: Software limits disabled on controller %s, axis %d.\n",
-		functionName, pC_->portName, axisNo_);
+              "%s: Setting high limit on controller %s, axis %d to %d\n",
+              functionName, pC_->portName, axisNo_, limit);
+    
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSPOS, limit);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    
+    if (!stat) {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+                "%s: ERROR: Failed to set high limit on controller %s, axis %d\n",
+                functionName, pC_->portName, axisNo_);
+      status = asynError;
+    }
   }
   
   return status;
@@ -871,37 +856,22 @@ asynStatus p6kAxis::setLowLimit(double lowLimit)
 
   asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
 
-  int32_t ls_enable = 0;
-  pC_->getIntegerParam(axisNo_, pC_->P6K_A_LS_Enable_, &ls_enable);
-
-  if (ls_enable == 1) {
-
-    if(lowLimit != -std::numeric_limits<double>::infinity()) {
-      epicsInt32 limit = static_cast<epicsInt32>(floor(lowLimit + 0.5));
-      
-      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW,
-		"%s: Setting high limit on controller %s, axis %d to %d\n",
-		functionName, pC_->portName, axisNo_, limit);
-      
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s3", axisNo_, P6K_CMD_LS);
-      stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-      memset(command, 0, sizeof(command));
-      
-      epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSNEG, limit);
-      stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-      
-      if (!stat) {
-	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
-		  "%s: ERROR: Failed to set low limit on controller %s, axis %d\n",
-		  functionName, pC_->portName, axisNo_);
-	status = asynError;
-      }
-    }
+  if(lowLimit != -std::numeric_limits<double>::infinity()) {
+    epicsInt32 limit = static_cast<epicsInt32>(floor(lowLimit + 0.5));
     
-  } else {
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW,
-		"%s: Software limits disabled on controller %s, axis %d.\n",
-		functionName, pC_->portName, axisNo_);
+              "%s: Setting high limit on controller %s, axis %d to %d\n",
+              functionName, pC_->portName, axisNo_, limit);
+    
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s%d", axisNo_, P6K_CMD_LSNEG, limit);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    
+    if (!stat) {
+      asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+                "%s: ERROR: Failed to set low limit on controller %s, axis %d\n",
+                functionName, pC_->portName, axisNo_);
+      status = asynError;
+    }
   }
   
   return status;
