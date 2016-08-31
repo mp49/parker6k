@@ -301,14 +301,17 @@ record(sseq, "$(M):HomeToHighLimit")
 
 # ///
 # /// Move to the high limit. This calculation also figures out if we
-# /// need to use the reverse limits due to a negative MRES
+# /// need to use the reverse limits due to a negative MRES, and if we need
+# /// to take into account backlash correction. It assumes we never use
+# /// negative backlash.
 # ///
 record(calcout, "$(M):HomeToHighLimit:Move")
 {
    field(INPA, "$(M):HomeDirReverse")
    field(INPB, "$(M).DHLM")
    field(INPC, "$(M).DLLM")
-   field(CALC, "A=1?C:B")
+   field(INPD, "$(M).BDST")
+   field(CALC, "A=1?C+D:B")
    field(OOPT, "Every Time")
    field(DOPT, "Use CALC")
    field(OUT, "$(M).DVAL PP")
@@ -412,8 +415,8 @@ record(sseq, "$(M):HomeToLowLimit")
    field(DOL1, "1")
    field(LNK1, "$(M):HomeToLowLimit:Status.VAL CA")
    field(DLY2, "0")
-   field(DOL2, "$(M).DLLM")
-   field(LNK2, "$(M).DVAL CA")
+   field(DOL2, "1")
+   field(LNK2, "$(M):HomeToLowLimit:Move.PROC CA")
    field(DLY3, "1")
    field(DOL3, "1")
    field(LNK3, "$(M):HomeToLowLimit:Check.PROC CA")
@@ -424,8 +427,8 @@ record(sseq, "$(M):HomeToLowLimit")
    field(DOL5, "$(M):HomeSpeed.VAL")
    field(LNK5, "$(M).VELO CA")
    field(DLY6, "1")
-   field(DOL6, "$(M).DLLM")
-   field(LNK6, "$(M).DVAL CA")
+   field(DOL6, "1")
+   field(LNK6, "$(M):HomeToLowLimit:Move.PROC CA")
    field(DLY7, "1")
    field(DOL7, "1")
    field(LNK7, "$(M):HomeToLowLimit:Check.PROC CA")
@@ -440,14 +443,17 @@ record(sseq, "$(M):HomeToLowLimit")
 
 # ///
 # /// Move to the low limit. This calculation also figures out if we
-# /// need to use the reverse limits due to a negative MRES
+# /// need to use the reverse limits due to a negative MRES, and if we need
+# /// to take into account backlash correction. It assumes we never use
+# /// negative backlash.
 # ///
 record(calcout, "$(M):HomeToLowLimit:Move")
 {
    field(INPA, "$(M):HomeDirReverse")
    field(INPB, "$(M).DHLM")
    field(INPC, "$(M).DLLM")
-   field(CALC, "A=1?B:C")
+   field(INPD, "$(M).BDST")
+   field(CALC, "A=1?B:C+D")
    field(OOPT, "Every Time")
    field(DOPT, "Use CALC")
    field(OUT, "$(M).DVAL PP")
