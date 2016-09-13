@@ -1045,6 +1045,17 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       printErrors_ = true;
     }
 
+    /* Transfer axis status */
+    epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TAS);
+    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+    if (stat) {
+      nvals = sscanf(response, "%d"P6K_CMD_TAS"%s", &axisNum, stringVal);
+      if (nvals != 2) {
+	stat = false;
+      } 
+    }
+    memset(command, 0, sizeof(command));
+
     /* Transfer current position and encoder position.*/
     epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPC);
     stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
@@ -1063,17 +1074,6 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
       if (nvals == 2) {
 	setDoubleParam(pC_->motorEncoderPosition_, intVal);
       }
-    }
-    memset(command, 0, sizeof(command));
-
-    /* Transfer axis status */
-    epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TAS);
-    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-    if (stat) {
-      nvals = sscanf(response, "%d"P6K_CMD_TAS"%s", &axisNum, stringVal);
-      if (nvals != 2) {
-	stat = false;
-      } 
     }
     memset(command, 0, sizeof(command));
 
