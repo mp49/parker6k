@@ -996,8 +996,8 @@ asynStatus p6kAxis::poll(bool *moving)
     } else {
       if (!axisError_) {
 	setStringParam(pC_->P6K_A_Error_, " ");
-	setIntegerParam(pC_->motorStatusCommsError_, 0);
       }
+      setIntegerParam(pC_->motorStatusCommsError_, 0);
     }
   }
   
