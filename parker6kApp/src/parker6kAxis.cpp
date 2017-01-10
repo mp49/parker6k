@@ -992,7 +992,7 @@ asynStatus p6kAxis::poll(bool *moving)
 		  functionName, pC_->portName, axisNo_);
       }
       setStringParam(pC_->P6K_A_Error_, "Problem reading axis status");
-      setIntegerParam(pC_->motorStatusCommsError_, 1);
+      //setIntegerParam(pC_->motorStatusCommsError_, 1);
     } else {
       if (!axisError_) {
 	setStringParam(pC_->P6K_A_Error_, " ");
