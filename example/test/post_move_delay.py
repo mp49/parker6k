@@ -6,7 +6,7 @@ import time
 import cothread
 from cothread.catools import *
 
-sys.path.append('/home/controls/epics/motor/proj_delay/examples/tests/')
+sys.path.append('/home/controls/epics/motor/master/examples/tests/')
 
 from motor_lib import motor_lib
 from motor_globals import motor_globals
