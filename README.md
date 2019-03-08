@@ -49,6 +49,7 @@ on a limit switch for example (which the controller does not support).
 
 It may be necessary to set ERES again before setting the position (or toggle UEIP).
 
+This driver also has built in support for reading an external encoder over Modbus (using the EPICS Modbus support).
 
 ### IOC Startup File
 
