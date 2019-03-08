@@ -62,6 +62,12 @@
 #define P6K_A_AutoDriveEnableString  "P6K_A_AUTO_DRIVE_ENABLE"
 #define P6K_A_AutoDriveEnableDelayString  "P6K_A_AUTO_DRIVE_ENABLE_DELAY"
 #define P6K_A_DriveRetryString  "P6K_A_DRIVE_RETRY"
+#define P6K_A_ExternalEncoderUseString  "P6K_A_EXT_ENC_USE"
+#define P6K_A_ExternalEncoderString  "P6K_A_EXT_ENC"
+#define P6K_A_ModbusEncoderString  "P6K_A_MODBUS_ENC"
+#define P6K_A_ModbusEncoderAddrString  "P6K_A_MODBUS_ENC_ADDR"
+#define P6K_A_ModbusEncoderOffsetString  "P6K_A_MODBUS_ENC_OFFSET"
+#define P6K_A_ModbusEncoderCheckString  "P6K_A_MODBUS_ENC_CHECK"
 
 #define P6K_MAXBUF 1024
 
@@ -169,6 +175,12 @@ class p6kController : public asynMotorController {
   int P6K_A_AutoDriveEnable_;
   int P6K_A_AutoDriveEnableDelay_;
   int P6K_A_DriveRetry_;
+  int P6K_A_ExternalEncoderUse_;
+  int P6K_A_ExternalEncoder_;
+  int P6K_A_ModbusEncoder_;
+  int P6K_A_ModbusEncoderAddr_;
+  int P6K_A_ModbusEncoderOffset_;
+  int P6K_A_ModbusEncoderCheck_;
   int P6K_C_TSS_SystemReady_;
   int P6K_C_TSS_ProgRunning_;
   int P6K_C_TSS_Immediate_;
@@ -217,6 +229,7 @@ class p6kController : public asynMotorController {
   static const epicsUInt32 P6K_MAX_DIGITS_;
 
   static const char * P6K_ASYN_IEOS_;
+  static const char * P6K_ASYN_IEOS_PROG_;
   static const char * P6K_ASYN_OEOS_;
 
   static const char P6K_ON_;

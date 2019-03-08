@@ -46,6 +46,7 @@ const epicsUInt32 p6kController::P6K_ERROR_ = 1;
 const epicsUInt32 p6kController::P6K_MAX_DIGITS_ = 4;
 
 const char * p6kController::P6K_ASYN_IEOS_ = ">";
+const char * p6kController::P6K_ASYN_IEOS_PROG_ = "-";
 const char * p6kController::P6K_ASYN_OEOS_ = "\n";
 
 const char p6kController::P6K_ON_         = '1';
@@ -163,6 +164,12 @@ p6kController::p6kController(const char *portName, const char *lowLevelPortName,
   createParam(P6K_A_AutoDriveEnableString,  asynParamInt32, &P6K_A_AutoDriveEnable_);
   createParam(P6K_A_AutoDriveEnableDelayString,  asynParamInt32, &P6K_A_AutoDriveEnableDelay_);
   createParam(P6K_A_DriveRetryString,       asynParamInt32, &P6K_A_DriveRetry_);
+  createParam(P6K_A_ExternalEncoderUseString, asynParamInt32, &P6K_A_ExternalEncoderUse_);
+  createParam(P6K_A_ExternalEncoderString, asynParamInt32, &P6K_A_ExternalEncoder_);
+  createParam(P6K_A_ModbusEncoderString, asynParamInt32, &P6K_A_ModbusEncoder_);
+  createParam(P6K_A_ModbusEncoderAddrString, asynParamInt32, &P6K_A_ModbusEncoderAddr_);
+  createParam(P6K_A_ModbusEncoderOffsetString, asynParamInt32, &P6K_A_ModbusEncoderOffset_);
+  createParam(P6K_A_ModbusEncoderCheckString, asynParamInt32, &P6K_A_ModbusEncoderCheck_);
 
   //Create dummy axis for asyn address 0. This is used for controller parameters.
   printf("%s: Create pAxisZero for controller parameters.\n", functionName);
@@ -348,6 +355,14 @@ asynStatus p6kController::lowLevelWriteRead(const char *command, char *response)
   }
 
   memset(response, 0, strlen(response));
+
+  // Check if we are defining a program using DEF. If so, change the 
+  // input EOS character from > to -. If we sending an END then change it back.
+  if (strncmp(command, "DEF", 3) == 0) {
+    pasynOctetSyncIO->setInputEos(lowLevelPortUser_, P6K_ASYN_IEOS_PROG_, strlen(P6K_ASYN_IEOS_PROG_) );
+  } else if (strncmp(command, "END", 3) == 0) {
+    pasynOctetSyncIO->setInputEos(lowLevelPortUser_, P6K_ASYN_IEOS_, strlen(P6K_ASYN_IEOS_) );
+  }
   
   stat = (pasynOctetSyncIO->writeRead(lowLevelPortUser_ ,
 				       command, strlen(command),
@@ -1015,8 +1030,8 @@ asynStatus p6kController::upload(const char *filename)
     while (fgets(line, P6K_MAXBUF_-1, fptr)) {
       //Remove newline
       line[strlen(line)-1]='\0';
-      //reject if any whitespace
-      if (strpbrk(line, whitespace) == NULL) {
+      //reject if any whitespace (but allow in IF statements)
+      if ((strpbrk(line, whitespace) == NULL) || (strncmp(line, "IF", 2) == 0)) {
 	printf("%s: %s\n", functionName, line);
 	epicsThreadSleep(0.05);
 	if (lowLevelWriteRead(line, response) != asynSuccess) {
@@ -1202,6 +1217,56 @@ asynStatus p6kCreateAxis(const char *p6kName,   //specify which controller by po
 }
 
 /**
+ * C wrapper for the p6kAxis constructor.
+ * This function also connects the Axis object to the modbus port so we can
+ * read an encoder position from modbus. 
+ * See p6kAxis::p6kAxis.
+ *
+ */
+asynStatus p6kCreateModbusEncAxis(const char *p6kName,    //specify which controller by port name
+                                  int axis,               //axis number (start from 1)
+                                  const char *modbusPort, //modbus asyn port
+                                  int modbusAddr,         //modbus address offset (in 16-bit words)
+                                  int modbusOffset)       //modbus encoder offset
+                                  
+{
+  p6kController *pC;
+  p6kAxis *pAxis;
+  asynStatus status = asynSuccess;
+
+  static const char *functionName = "p6kCreateAxis";
+
+  pC = (p6kController*) findAsynPortDriver(p6kName);
+  if (!pC) {
+    printf("%s::%s: ERROR Port %s Not Found.\n",
+           driverName, functionName, p6kName);
+    return asynError;
+  }
+
+  if (axis == 0) {
+    printf("%s::%s: ERROR Axis Number 0 Not Allowed. "
+	   "This Asyn Address Is Reserved For Controller Specific Parameters.\n",
+	   driverName, functionName);
+    return asynError;
+  }
+  
+  pC->lock();
+  pAxis = new p6kAxis(pC, axis);
+
+  if (pAxis->modbusPortConnect(modbusPort, modbusAddr, modbusOffset) != asynSuccess) {
+    printf("%s::%s: ERROR Failed to connect to modbus port %s, addr %d\n.",
+	   driverName, functionName, modbusPort, modbusAddr);
+    status = asynError;
+  }
+
+  if (pAxis) {
+    pAxis = NULL;
+  }
+  pC->unlock();
+  return status;
+}
+
+/**
  * C Wrapper function for p6kAxis constructor.
  * See p6kAxis::p6kAxis.
  * This function allows creation of multiple p6kAxis objects with axis numbers 1 to numAxes.
@@ -1295,6 +1360,24 @@ static void configp6kAxisCallFunc(const iocshArgBuf *args)
   p6kCreateAxis(args[0].sval, args[1].ival);
 }
 
+/* p6kCreateModbusEncAxis */
+static const iocshArg p6kCreateModbusEncAxisArg0 = {"Controller port name", iocshArgString};
+static const iocshArg p6kCreateModbusEncAxisArg1 = {"Axis number", iocshArgInt};
+static const iocshArg p6kCreateModbusEncAxisArg2 = {"Modbus Port Name", iocshArgString};
+static const iocshArg p6kCreateModbusEncAxisArg3 = {"Modbus Port Address", iocshArgInt};
+static const iocshArg p6kCreateModbusEncAxisArg4 = {"Modbus Enc Offset", iocshArgInt};
+static const iocshArg * const p6kCreateModbusEncAxisArgs[] = {&p6kCreateModbusEncAxisArg0,
+                                                              &p6kCreateModbusEncAxisArg1,
+                                                              &p6kCreateModbusEncAxisArg2,
+                                                              &p6kCreateModbusEncAxisArg3,
+                                                              &p6kCreateModbusEncAxisArg4};
+static const iocshFuncDef configp6kModbusEncAxis = {"p6kCreateModbusEncAxis", 5, p6kCreateModbusEncAxisArgs};
+
+static void configp6kModbusEncAxisCallFunc(const iocshArgBuf *args)
+{
+  p6kCreateModbusEncAxis(args[0].sval, args[1].ival, args[2].sval, args[3].ival, args[4].ival);
+}
+
 /* p6kCreateAxes */
 static const iocshArg p6kCreateAxesArg0 = {"Controller port name", iocshArgString};
 static const iocshArg p6kCreateAxesArg1 = {"Num Axes", iocshArgInt};
@@ -1323,6 +1406,7 @@ static void p6kControllerRegister(void)
 {
   iocshRegister(&configp6kCreateController,   configp6kCreateControllerCallFunc);
   iocshRegister(&configp6kAxis,               configp6kAxisCallFunc);
+  iocshRegister(&configp6kModbusEncAxis,      configp6kModbusEncAxisCallFunc);
   iocshRegister(&configp6kAxes,               configp6kAxesCallFunc);
   iocshRegister(&configp6kUpload,             configp6kUploadCallFunc);
 }

@@ -42,9 +42,14 @@ class p6kAxis : public asynMotorAxis
   asynStatus setHighLimit(double highLimit);
   asynStatus setLowLimit(double lowLimit);
   asynStatus disableSoftwareLimits(bool disable);
+  asynStatus modbusPortConnect(const char *modbusPort, int modbusAddr, int modbusOffset);
   
   private:
   p6kController *pC_;
+  
+  asynUser* modbusEncPort_;
+  epicsInt32 modbusEncAddr_;
+  epicsInt32 modbusEncOffset_;
 
   bool movingLastPoll_;
   bool delayDoneMove_;

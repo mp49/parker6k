@@ -11,7 +11,12 @@
 # PORT - asyn motor driver port
 # ADDR - asyn address (ie. axis number)
 # TIMEOUT - asyn timeout (eg 1)
+#
+# Optional macros:
 # POS_ONLY - Set this to 1 to tell the driver to only send position commands (not velocity and accel).
+# LS_ENABLE - Set to 0 to disable the use of controller software limits. Default is 1.
+# DRIVE_RETRY - Set to 1 to enable automatic attempts to recover from a DRIVE_SHUTDOWN error. Default is 0.
+# EXT_ENC - PV name for an external encoder. Default points to a dummy record.
 #
 # Matt Pearson
 # May 2014
@@ -25,10 +30,12 @@
 # ///
 record(calcout, "$(M):CommsDisable")
 {
+   field(PINI, "YES")
    field(INPA, "$(C):CommsError CP")
-   field(CALC, "A==1")
+   field(INPB, "$(C):Config CP")
+   field(CALC, "(A==1)||(B==0)")
    field(DOPT, "Use CALC")
-   field(OOPT, "On Change")
+   field(OOPT, "Every Time")
    field(OUT, "$(M):SDIS.B PP")
 }
 
@@ -233,6 +240,108 @@ record(bi, "$(M):DriveRetry_RBV")
    field(SCAN, "I/O Intr")
 }
 
+# ///
+# /// Several records to support using an external encoder set via 
+# /// the database. 
+# /// NOTE: this didn't work too well in practice, especially when the 
+# /// motor record is doing retries.
+# ///
+record(bo, "$(M):ExternalEncoderUse")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_EXT_ENC_USE")
+   field(ZNAM, "Disable")
+   field(ONAM, "Enable")
+   field(VAL,  "0")
+   info(autosaveFields_pass0, "VAL")
+}
+record(bi, "$(M):ExternalEncoderUse_RBV")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_EXT_ENC_USE")
+   field(ZNAM, "Disable")
+   field(ONAM, "Enable")
+   field(SCAN, "I/O Intr")
+   info(archive, "Monitor, 00:00:01, VAL")
+}
+record(longout, "$(M):ExtEncVal")
+{
+   field(DESC, "Dummy Encoder")
+}
+record(calcout, "$(M):ExternalEncoderLink")
+{
+   field(INPA, "$(EXT_ENC=$(M):ExtEncVal) CP MS")
+   field(CALC, "A")
+   field(OUT,  "$(M):ExternalEncoder PP")
+}
+record(longout, "$(M):ExternalEncoder")
+{
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_EXT_ENC")
+}
+record(longin, "$(M):ExternalEncoder_RBV")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_EXT_ENC")
+   field(SCAN, "I/O Intr")
+   info(archive, "Monitor, 00:00:01, VAL")
+}
+
+record(seq, "$(M):ExternalEncoderDelayProc")
+{
+   field(PINI, "YES")
+   field(DLY1, "5")
+   field(DOL1, "1")
+   field(LNK1, "$(M):ExternalEncoder.PROC PP")
+}
+
+
+# ///
+# /// Several records to indicate if we using an external modbus encoder.
+# /// These should reflect what we pass into p6kCreateModbusEncAxis in the st.cmd.
+# ///
+record(bi, "$(M):ModbusEnc")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_MODBUS_ENC")
+   field(ZNAM, "Not In Use")
+   field(ONAM, "In Use")
+   field(SCAN, "I/O Intr")
+}
+record(longin, "$(M):ModbusEncAddr")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_MODBUS_ENC_ADDR")
+   field(SCAN, "I/O Intr")
+}
+record(longin, "$(M):ModbusEncOff")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_MODBUS_ENC_OFFSET")
+   field(SCAN, "I/O Intr")
+   info(archive, "Monitor, 00:00:01, VAL")
+}
+record(bo, "$(M):ModbusEncCheck")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_MODBUS_ENC_CHECK")
+   field(VAL, "1")
+   field(ZNAM, "No")
+   field(ONAM, "Yes")
+   info(autosaveFields, "VAL")
+   info(archive, "Monitor, 00:00:01, VAL")
+}
+record(bi, "$(M):ModbusEncCheck_RBV")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))P6K_A_MODBUS_ENC_CHECK")
+   field(ZNAM, "No")
+   field(ONAM, "Yes")
+   field(SCAN, "I/O Intr")
+   info(archive, "Monitor, 00:00:01, VAL")
+}
 
 ############################################################################
 # Time since last move

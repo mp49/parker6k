@@ -23,6 +23,9 @@
 #include <epicsStdio.h>
 #include <iocsh.h>
 
+#include "asynOctetSyncIO.h"
+#include "asynInt32SyncIO.h"
+
 #include "parker6kController.h"
 #include <iostream>
 #include <limits>
@@ -108,6 +111,7 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   commandError_ = false;
   axisError_ = false;
   driveType_ = P6K_STEPPER_;
+  modbusEncPort_ = NULL;
 
   p6k_cmddir_ = 0;
   p6k_drfen_ = 0;
@@ -123,7 +127,11 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   paramStatus = ((setIntegerParam(pC_->P6K_A_DRES_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_ERES_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_MaxDigits_, pC_->P6K_MAX_DIGITS_) == asynSuccess) && paramStatus);
-  paramStatus = ((setIntegerParam(pC_->motorStatusHasEncoder_, 0) == asynSuccess) && paramStatus);
+  //NOTE: on 1/16/18 I modified this to always set motorStatusHasEncoder_ = 1. This makes it easier
+  //      to switch to using an external PV based encoder value. If we are not using an external encoder, 
+  //      and the controller doesn't have an encoder, it's still ok to set this to 1 because the 
+  //      the controller puts the motor step count in the encoder register anyway. 
+  paramStatus = ((setIntegerParam(pC_->motorStatusHasEncoder_, 1) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->motorStatusGainSupport_, 1) == asynSuccess) && paramStatus);
   paramStatus = ((setStringParam(pC_->P6K_A_Command_, " ") == asynSuccess) && paramStatus);
   paramStatus = ((setStringParam(pC_->P6K_A_Response_, " ") == asynSuccess) && paramStatus);
@@ -134,6 +142,9 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   paramStatus = ((setIntegerParam(pC_->P6K_A_TAS_DriveFault_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_TAS_Timeout_, 0) == asynSuccess) && paramStatus);
   paramStatus = ((setIntegerParam(pC_->P6K_A_TAS_PosErr_, 0) == asynSuccess) && paramStatus);
+  paramStatus = ((setIntegerParam(pC_->P6K_A_ModbusEncoder_, 0) == asynSuccess) && paramStatus);
+  paramStatus = ((setIntegerParam(pC_->P6K_A_ModbusEncoderAddr_, 0) == asynSuccess) && paramStatus);
+  paramStatus = ((setIntegerParam(pC_->P6K_A_ModbusEncoderOffset_, 0) == asynSuccess) && paramStatus);
   if (!paramStatus) {
     asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
 	      "%s Unable To Set Driver Parameters In Constructor. Axis:%d\n", 
@@ -155,6 +166,44 @@ p6kAxis::p6kAxis(p6kController *pC, int32_t axisNo)
   /* Wake up the poller task which will make it do a poll */   
   pC_->wakeupPoller();
  
+}
+
+/**
+ * Connect to the modbus asyn port.
+ * This function is used if we are creating Axis objects using 
+ * the p6kController::p6kCreateModbusEncAxis function. This will allow
+ * us to read the encoder position over Modbus.
+ * This uses the asynInt32SyncIO interface, and passes the INT32_BE message to the modbus driver.
+ * NOTE: This is assuming we never read more than 4 bytes worth of counts. If we find we do
+ *       then we'll have to add the second address (typically the existing
+ *       address+2), and use a second asynUser, and then in the driver apply a scaling 
+ *       factor so we lose some precision - this would be necessary in order to fit into the motor
+ *       record limitation of 4-byte positions.  
+ */
+asynStatus p6kAxis::modbusPortConnect(const char *modbusPort, int modbusAddr, int modbusOffset)
+{
+  asynStatus status = asynSuccess;
+ 
+  static const char *functionName = "p6kAxis::modbusPortConnect";
+
+  asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, "%s\n", functionName);
+
+  status = pasynInt32SyncIO->connect(modbusPort, modbusAddr, &this->modbusEncPort_, "INT32_BE");
+  if ((status) || (this->modbusEncPort_ == NULL)) {
+    asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+	      "p6kAxis::modbusPortConnect: unable to connect to modbus port %s, addr %d\n", 
+	      modbusPort, modbusAddr);
+    return status;
+  }
+
+  modbusEncAddr_ = modbusAddr;
+  modbusEncOffset_ = modbusOffset;
+
+  setIntegerParam(pC_->P6K_A_ModbusEncoder_, 1);
+  setIntegerParam(pC_->P6K_A_ModbusEncoderAddr_, modbusEncAddr_);
+  setIntegerParam(pC_->P6K_A_ModbusEncoderOffset_, modbusEncOffset_);
+  
+  return status;
 }
 
 /**
@@ -284,7 +333,8 @@ asynStatus p6kAxis::getAxisInitialStatus(void)
     stat = (readIntParam(P6K_CMD_DRES, pC_->P6K_A_DRES_, &intVal) == asynSuccess) && stat;
     stat = (readIntParam(P6K_CMD_ERES, pC_->P6K_A_ERES_, &intVal) == asynSuccess) && stat;
     stat = (readIntParam(P6K_CMD_DRIVE, pC_->motorStatusPowerOn_, &intVal) == asynSuccess) && stat;
-    stat = (readIntParam(P6K_CMD_ENCCNT, pC_->motorStatusHasEncoder_, &intVal) == asynSuccess) && stat;
+    //Don't bother reading ENCCNT and setting motorStatusHasEncoder_ (see note in constructor made on 1/16/18).
+    //stat = (readIntParam(P6K_CMD_ENCCNT, pC_->motorStatusHasEncoder_, &intVal) == asynSuccess) && stat;
     stat = (readIntParam(P6K_CMD_LH, pC_->P6K_A_LH_, &intVal) == asynSuccess) && stat;
     stat = (readIntParam(P6K_CMD_LS, pC_->P6K_A_LS_, &intVal) == asynSuccess) && stat;
     stat = (readDoubleParam(P6K_CMD_LSPOS, pC_->motorHighLimit_, &doubleVal) == asynSuccess) && stat;
@@ -345,8 +395,9 @@ void p6kAxis::printAxisParams(void)
   printf("  "P6K_CMD_DRIVE": %d\n", intVal);
   pC_->getIntegerParam(axisNo_, pC_->P6K_A_ERES_, &intVal);
   printf("  "P6K_CMD_ERES": %d\n", intVal);
-  pC_->getIntegerParam(axisNo_, pC_->motorStatusHasEncoder_, &intVal);
-  printf("  "P6K_CMD_ENCCNT": %d\n", intVal);
+  //Don't bother reading ENCCNT (see note in constructor made on 1/16/18).
+  //pC_->getIntegerParam(axisNo_, pC_->motorStatusHasEncoder_, &intVal);
+  //printf("  "P6K_CMD_ENCCNT": %d\n", intVal);
   printf("  "P6K_CMD_ENCPOL": %d\n", p6k_encpol_);
   printf("  "P6K_CMD_ESK": %d\n", p6k_esk_);
   printf("  "P6K_CMD_ESTALL": %d\n", p6k_estall_);
@@ -492,6 +543,7 @@ asynStatus p6kAxis::move(double position, int32_t relative, double min_velocity,
     status = pC_->lowLevelWriteRead(command, response);
     memset(command, 0, sizeof(command));
     epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_GO);
+    movingLastPoll_ = true;
   } else { /* deferred moves */
     deferredPosition_ = pos;
     deferredMove_ = 1;
@@ -738,12 +790,11 @@ asynStatus p6kAxis::setPosition(double position)
   }
 
   /*Now set position on encoder axis.*/
+  epicsFloat64 encRatio = 0.0;
+  pC_->getDoubleParam(axisNo_, pC_->motorEncoderRatio_, &encRatio);
+  epicsInt32 encpos = (epicsInt32) floor((position*encRatio) + 0.5);
   if (stat) {             
-    epicsFloat64 encRatio = 0.0;
-    pC_->getDoubleParam(axisNo_, pC_->motorEncoderRatio_, &encRatio);
-
     if (encRatio != 0) {
-      epicsInt32 encpos = (epicsInt32) floor((position*encRatio) + 0.5);
       
       asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
 		"%s: Set encoder axis %d on controller %s to position %d, encRatio: %f\n", 
@@ -758,6 +809,12 @@ asynStatus p6kAxis::setPosition(double position)
 	      functionName);
     }
   }
+
+  /*Set the motor and encoder position here, regardless of if any of the 
+    above commands worked. This way the motor record has the correct position
+    restored if the controller is off. Then autosave will still work when we have UEIP=1.*/
+  setDoubleParam(pC_->motorPosition_, pos);
+  setDoubleParam(pC_->motorEncoderPosition_, encpos);
 
   /*Now do a fast update, to get the new position from the controller.*/
   bool moving = true;
@@ -1020,9 +1077,13 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     int32_t nvals = 0;
     int32_t axisNum = 0;
     int32_t intVal = 0;
+    int32_t externalEncoderUse = 0;
+    int32_t externalEncoder = 0;
+    epicsInt32 modbusEncoder = 0;
     char stringVal[P6K_MAXBUF] = {0};
     bool doneMoving = false;
     bool controllerDoneMoving = false;
+    uint32_t problem = 0;
     
     static const char *functionName = "p6kAxis::getAxisStatus";
     
@@ -1067,17 +1128,71 @@ asynStatus p6kAxis::getAxisStatus(bool *moving)
     }
     memset(command, 0, sizeof(command));
 
-    epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPE);
-    stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
-    if (stat) {
-      nvals = sscanf(response, "%d"P6K_CMD_TPE"%d", &axisNum, &intVal);
-      if (nvals == 2) {
-	setDoubleParam(pC_->motorEncoderPosition_, intVal);
+    //First check if we read the encoder position from a parameter.
+    //Then check if we are reading the encoder via modbus.
+    //Otherwise read from controller.
+    pC_->getIntegerParam(axisNo_, pC_->P6K_A_ExternalEncoderUse_, &externalEncoderUse);
+    if (externalEncoderUse == 1) {
+      //Allow time for encoder position to be written from data via writeFloat64
+      //Otherwise the positions are stale because we are blocked by the poller lock taken
+      //in asynMotorController::asynMotorPoller.
+      pC_->unlock();
+      epicsThreadSleep(0.01);
+      pC_->lock();
+      if (pC_->getIntegerParam(axisNo_, pC_->P6K_A_ExternalEncoder_, &externalEncoder) == asynSuccess) {
+        setDoubleParam(pC_->motorEncoderPosition_, externalEncoder);
+        asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
+                    "%s: External encoder position on controller %s axis %d is %d\n", 
+                    functionName, pC_->portName, axisNo_, externalEncoder);
+      }
+    } else if (modbusEncPort_ != NULL) {
+      //We are reading the encoder position over modbus
+      //Apply a small delay to ensure we have an up to date value
+      epicsThreadSleep(0.1);
+      //Check if we care about bad readings
+      epicsInt32 modbusEncCheck = 0;
+      pC_->getIntegerParam(axisNo_, pC_->P6K_A_ModbusEncoderCheck_, &modbusEncCheck);
+      if (pasynInt32SyncIO->read(this->modbusEncPort_, &modbusEncoder, 1.0) != asynSuccess) {
+        if (modbusEncCheck != 0) {
+          asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+                    "%s: ERROR: Problem reading modbus encoder position axis %d\n", 
+                    functionName, axisNo_);
+          problem = 1;
+        }
+      } else {
+        if (modbusEncoder == 0) { //If modbus encoder is zero, consider this an error
+          if (modbusEncCheck != 0) {
+            if (printErrors_) {
+              asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
+                        "%s: Modbus encoder position is zero on controller %s axis %d.\n", 
+                        functionName, pC_->portName, axisNo_);
+              printNextError_ = false;
+            }
+            problem = 1;
+          }
+          setDoubleParam(pC_->motorEncoderPosition_, 0.0);
+        } else {
+          asynPrint(pC_->pasynUserSelf, ASYN_TRACE_FLOW, 
+                    "%s: Modbus encoder position on controller %s axis %d is %d\n", 
+                    functionName, pC_->portName, axisNo_, modbusEncoder);
+          //Apply the count offset that we specified in the IOC startup script
+          modbusEncoder = modbusEncoder + modbusEncOffset_;
+          setDoubleParam(pC_->motorEncoderPosition_, modbusEncoder);
+        }
+      }
+    } else {
+      //Else we are just reading the encoder from the controller as normal
+      epicsSnprintf(command, P6K_MAXBUF, "%d%s", axisNo_, P6K_CMD_TPE);
+      stat = (pC_->lowLevelWriteRead(command, response) == asynSuccess) && stat;
+      if (stat) {
+        nvals = sscanf(response, "%d"P6K_CMD_TPE"%d", &axisNum, &intVal);
+        if (nvals == 2) {
+          setDoubleParam(pC_->motorEncoderPosition_, intVal);
+        }
       }
     }
     memset(command, 0, sizeof(command));
 
-    uint32_t problem = 0;
     if (!stat) {
       if (printErrors_) {
 	asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, 
