@@ -302,7 +302,7 @@ record(sseq, "$(M):HomeToHighLimit")
 # ///
 # /// Move to the high limit. This calculation also figures out if we
 # /// need to use the reverse limits due to a negative MRES, and if we need
-# /// to take into account backlash correction. It assumes we never use
+# /// to take into account backlash correction. This also works for
 # /// negative backlash.
 # ///
 record(calcout, "$(M):HomeToHighLimit:Move")
@@ -311,9 +311,12 @@ record(calcout, "$(M):HomeToHighLimit:Move")
    field(INPB, "$(M).DHLM")
    field(INPC, "$(M).DLLM")
    field(INPD, "$(M).BDST")
-   field(CALC, "A=1?C+D:B")
-   field(OOPT, "Every Time")
-   field(DOPT, "Use CALC")
+   field(INPE, "$(M).RHLS")
+   field(INPF, "$(M).RLLS")
+   field(CALC, "A=1?(F!=1):(E!=1)")
+   field(OOPT, "When Non-zero")
+   field(DOPT, "Use OCAL")
+   field(OCAL, "A=1?((D>0)?C+D:C):((D>0)?B:B+D)")
    field(OUT, "$(M).DVAL PP")
 }
 
@@ -444,7 +447,7 @@ record(sseq, "$(M):HomeToLowLimit")
 # ///
 # /// Move to the low limit. This calculation also figures out if we
 # /// need to use the reverse limits due to a negative MRES, and if we need
-# /// to take into account backlash correction. It assumes we never use
+# /// to take into account backlash correction. This also works for
 # /// negative backlash.
 # ///
 record(calcout, "$(M):HomeToLowLimit:Move")
@@ -453,9 +456,12 @@ record(calcout, "$(M):HomeToLowLimit:Move")
    field(INPB, "$(M).DHLM")
    field(INPC, "$(M).DLLM")
    field(INPD, "$(M).BDST")
-   field(CALC, "A=1?B:C+D")
-   field(OOPT, "Every Time")
-   field(DOPT, "Use CALC")
+   field(INPE, "$(M).RHLS")
+   field(INPF, "$(M).RLLS")
+   field(CALC, "A=1?(E!=1):(F!=1)")
+   field(OOPT, "When Non-zero")
+   field(DOPT, "Use OCAL")
+   field(OCAL, "A=1?((D>0)?B:B+D):((D>0)?C+D:C)")
    field(OUT, "$(M).DVAL PP")
 }
 
@@ -557,8 +563,9 @@ record(dfanout, "$(M):HomeToLimit:Abort") {
 ###############################################################
 
 # ///
-# /// Record to run the 6K home routine
-# /// If we don't see the homed bit on, we abort.
+# /// Record to run the 6K home routine. We first optionally move
+# /// to a limit (low or high limit). After we finish, if we don't 
+# /// see the homed bit on, we set the error flag.
 # ///
 record(sseq, "$(M):HomeTo6KHome")
 {
@@ -567,21 +574,29 @@ record(sseq, "$(M):HomeTo6KHome")
    field(WAIT3, "Wait")
    field(WAIT4, "Wait")
    field(WAIT5, "Wait")
+   field(WAIT6, "Wait")
+   field(WAIT7, "Wait")
    field(DLY1, "0")
    field(DOL1, "1")
    field(LNK1, "$(M):HomeTo6KHome:Status.VAL CA")
    field(DLY2, "0")
    field(DOL2, "1")
-   field(LNK2, "$(M):HomeTo6KHome:Run.PROC CA")
+   field(LNK2, "$(M):HomeTo6KHome:LimitMove.PROC CA")
    field(DLY3, "2")
    field(DOL3, "1")
-   field(LNK3, "$(M):HomeTo6KHome:Check.PROC CA")
-   field(DLY4, "1")
+   field(LNK3, "$(M):HomeTo6KHome:LimitCheck.PROC CA")
+   field(DLY4, "0")
    field(DOL4, "1")
-   field(LNK4, "$(M):HomePositionSet.PROC CA")
-   field(DLY5, "0")
-   field(DOL5, "0")
-   field(LNK5, "$(M):HomeTo6KHome:Status.VAL CA")
+   field(LNK4, "$(M):HomeTo6KHome:Run.PROC CA")
+   field(DLY5, "2")
+   field(DOL5, "1")
+   field(LNK5, "$(M):HomeTo6KHome:Check.PROC CA")
+   field(DLY6, "1")
+   field(DOL6, "1")
+   field(LNK6, "$(M):HomePositionSet.PROC CA")
+   field(DLY7, "0")
+   field(DOL7, "0")
+   field(LNK7, "$(M):HomeTo6KHome:Status.VAL CA")
 }
 
 # ///
@@ -664,6 +679,85 @@ record(bo, "$(M):HomeTo6KHome:Direction") {
   field(ONAM, "Negative")
   info(autosaveFields, "VAL")
   info(archive, "Monitor, 00:00:01, VAL")
+}
+
+# ///
+# /// This selects which limit switch to move to first. It's optional, but can be necessary
+# /// when homing on a home switch that is on for half the range of travel.
+# ///
+record(mbbo, "$(M):HomeTo6KHome:LimitDir") {
+  field(PINI, "YES")
+  field(ZRVL, "0")
+  field(ONVL, "1")
+  field(TWVL, "2")
+  field(ZRST, "None")
+  field(ONST, "High Lim Switch")
+  field(TWST, "Low Lim Switch")
+  info(autosaveFields, "VAL")
+  info(archive, "Monitor, 00:00:01, VAL")
+}
+# ///
+# /// Move to the low or high limit. This calculation also figures out if we
+# /// need to use the reverse limits due to a negative MRES, and if we need
+# /// to take into account backlash correction. This also works for
+# /// negative backlash.
+# /// 
+# /// The second record below (LimitMove2) will move to low limit if we set LimitMove2.A=0. It will
+# /// move to high limit if we set LimitMove2.A=1.
+# ///
+# /// The CALC & OCAL logic is:
+# /// If LimitDir is non-zero (ie we want to move to a limit), then:
+# /// If HomeDirReverse=1, If LimitDir=2 (Move to low limit), then set LimitMove2.A=1, else set to 0.
+# /// If HomeDirReverse=0, If LimitDir=2 (Move to low limit), then set LimitMove2.A=0, else set to 1.
+# ///
+record(calcout, "$(M):HomeTo6KHome:LimitMove")
+{
+   field(INPA, "$(M):HomeTo6KHome:LimitDir")
+   field(INPB, "$(M):HomeDirReverse")
+   field(CALC, "A!=0")
+   field(OOPT, "When Non-zero")
+   field(DOPT, "Use OCAL")
+   field(OCAL, "(B=1)?((A=2)?1:0):((A=2)?0:1)")
+   field(OUT, "$(M):HomeTo6KHome:LimitMove2.A PP")
+}
+# ///
+# /// This record will move to the low limit, unless we reverse
+# /// it by setting A=1 according to the above record logic. We first 
+# /// check if the limit is on, and don't attempt the move if it is.
+# ///
+record(calcout, "$(M):HomeTo6KHome:LimitMove2")
+{
+   field(INPB, "$(M).DHLM")
+   field(INPC, "$(M).DLLM")
+   field(INPD, "$(M).BDST")
+   field(INPE, "$(M).HLS")
+   field(INPF, "$(M).LLS")
+   field(CALC, "A=1?(E!=1):(F!=1)")
+   field(OOPT, "When Non-zero")
+   field(DOPT, "Use OCAL")
+   field(OCAL, "A=1?((D>0)?B:B+D):((D>0)?C+D:C)")
+   field(OUT, "$(M).DVAL PP")
+}
+
+# ///
+# /// Abort the sseq if we moved to a limit and are not on the 
+# /// appropriate limit
+# ///
+record(calcout, "$(M):HomeTo6KHome:LimitCheck") {
+   field(INPA, "$(M):HomeTo6KHome:LimitDir")
+   field(CALC, "A!=0")
+   field(OOPT, "When Non-zero")
+   field(DOPT, "Use CALC")
+   field(OUT, "$(M):HomeTo6KHome:LimitCheck2.PROC PP")
+}
+record(calcout, "$(M):HomeTo6KHome:LimitCheck2") {
+   field(INPA, "$(M).RHLS")
+   field(INPB, "$(M).RLLS")
+   field(INPC, "$(M):HomeTo6KHome:LimitDir")
+   field(CALC, "C=1?((A!=1)?1:0):((B!=1)?1:0)")
+   field(OOPT, "When Non-zero")
+   field(DOPT, "Use CALC")
+   field(OUT, "$(M):HomeTo6KHome:Error PP")
 }
 
 # ///
